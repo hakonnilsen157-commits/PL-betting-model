@@ -96,6 +96,19 @@ export async function fetchLiveFixtures(): Promise<FootballFixture[]> {
     }
   );
 
+  console.log('RAW FIXTURES COUNT', data.response.length);
+  console.log(
+    'RAW FIXTURE SAMPLE',
+    data.response.slice(0, 10).map((f) => ({
+      id: f.fixture.id,
+      date: f.fixture.date,
+      status: f.fixture.status?.short,
+      round: f.league?.round,
+      home: f.teams.home.name,
+      away: f.teams.away.name,
+    }))
+  );
+
   return data.response
     .filter((f) => ['NS', 'TBD', 'PST'].includes(f.fixture.status?.short ?? 'NS'))
     .slice(0, MAX_FIXTURES);
