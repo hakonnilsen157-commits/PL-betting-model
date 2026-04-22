@@ -92,11 +92,15 @@ function isLiveMode() {
 function normalizeTeamName(name: string): string {
   return name
     .replace(/\s+/g, ' ')
+    .replace('AFC Bournemouth', 'Bournemouth')
     .replace('Nottingham Forest', 'Nottm Forest')
     .replace('Wolverhampton Wanderers', 'Wolves')
     .replace('Manchester Utd', 'Manchester United')
+    .replace('Manchester City', 'Manchester City')
     .replace('Tottenham Hotspur', 'Tottenham')
     .replace('Newcastle Utd', 'Newcastle United')
+    .replace('Leeds', 'Leeds United')
+    .replace('Brighton', 'Brighton and Hove Albion')
     .trim();
 }
 
@@ -134,25 +138,47 @@ function parseTotals(bookmaker?: OddsApiBookmaker) {
   return { over2_5: over?.price ?? 1.95, under2_5: under?.price ?? 1.95 };
 }
 
+function buildSeasonsToTry() {
+  const envSeason = Number(process.env.API_FOOTBALL_SEASON ?? new Date().getUTCFullYear());
+  return Array.from(new Set([envSeason, envSeason - 1, 2025, 2026]));
+}
+
 export async function fetchLiveFixtures(): Promise<FootballFixture[]> {
   if (!process.env.API_FOOTBALL_KEY) return [];
 
-  const qs = new URLSearchParams({
-    league: String(EPL_LEAGUE_ID),
-    season: String(DEFAULT_SEASON),
-    timezone: 'Europe/Oslo',
-  });
+  const seasonsToTry = buildSeasonsToTry();
 
-  const data = await fetchJson<{ response: FootballFixture[] }>(
-    `${FOOTBALL_BASE}/fixtures?${qs.toString()}`,
-    {
-      headers: { 'x-apisports-key': process.env.API_FOOTBALL_KEY! },
+  for (const season of seasonsToTry) {
+    try {
+      const qs = new URLSearchParams({
+        league: String(EPL_LEAGUE_ID),
+        season: String(season),
+        timezone: 'Europe/Oslo',
+      });
+
+      const data = await fetchJson<{ response: FootballFixture[] }>(
+        `${FOOTBALL_BASE}/fixtures?${qs.toString()}`,
+        {
+          headers: { 'x-apisports-key': process.env.API_FOOTBALL_KEY! },
+        }
+      );
+
+      const fixtures = (data.response ?? [])
+        .filter((f) => ['NS', 'TBD', 'PST'].includes(f.fixture.status?.short ?? 'NS'))
+        .slice(0, MAX_FIXTURES);
+
+      if (fixtures.length > 0) {
+        console.log('API-FOOTBALL fixtures season hit:', season, fixtures.length);
+        return fixtures;
+      }
+
+      console.log('API-FOOTBALL fixtures empty for season:', season);
+    } catch (error) {
+      console.log('API-FOOTBALL fixtures failed for season:', season, error);
     }
-  );
+  }
 
-  return data.response
-    .filter((f) => ['NS', 'TBD', 'PST'].includes(f.fixture.status?.short ?? 'NS'))
-    .slice(0, MAX_FIXTURES);
+  return [];
 }
 
 export async function fetchLiveInjuriesByFixtureIds(fixtureIds: number[]) {
@@ -160,14 +186,18 @@ export async function fetchLiveInjuriesByFixtureIds(fixtureIds: number[]) {
 
   const responses = await Promise.all(
     fixtureIds.map(async (fixtureId) => {
-      const qs = new URLSearchParams({ fixture: String(fixtureId) });
-      const data = await fetchJson<{ response: FootballInjury[] }>(
-        `${FOOTBALL_BASE}/injuries?${qs.toString()}`,
-        {
-          headers: { 'x-apisports-key': process.env.API_FOOTBALL_KEY! },
-        }
-      );
-      return data.response;
+      try {
+        const qs = new URLSearchParams({ fixture: String(fixtureId) });
+        const data = await fetchJson<{ response: FootballInjury[] }>(
+          `${FOOTBALL_BASE}/injuries?${qs.toString()}`,
+          {
+            headers: { 'x-apisports-key': process.env.API_FOOTBALL_KEY! },
+          }
+        );
+        return data.response;
+      } catch {
+        return [] as FootballInjury[];
+      }
     })
   );
 
@@ -193,61 +223,73 @@ export async function fetchLiveOdds(): Promise<OddsApiEvent[]> {
 async function fetchLeagueStandingsMap(): Promise<Map<string, TeamContext>> {
   if (!process.env.API_FOOTBALL_KEY) return new Map();
 
-  try {
-    const qs = new URLSearchParams({
-      league: String(EPL_LEAGUE_ID),
-      season: String(DEFAULT_SEASON),
-    });
+  const seasonsToTry = buildSeasonsToTry();
 
-    const data = await fetchJson<{
-      response?: Array<{
-        league?: {
-          standings?: FootballStandingsRow[][];
-        };
-      }>;
-    }>(`${FOOTBALL_BASE}/standings?${qs.toString()}`, {
-      headers: { 'x-apisports-key': process.env.API_FOOTBALL_KEY! },
-    });
-
-    const rows = data.response?.[0]?.league?.standings?.[0] ?? [];
-    const map = new Map<string, TeamContext>();
-
-    for (const row of rows) {
-      const name = normalizeTeamName(row.team?.name ?? '');
-      if (!name) continue;
-
-      map.set(name, {
-        teamId: row.team?.id,
-        teamName: name,
-        rank: row.rank,
-        points: row.points,
-        form: row.form,
-        description: row.description,
-        goalsFor: row.all?.goals?.for,
-        goalsAgainst: row.all?.goals?.against,
-        played: row.all?.played,
-        wins: row.all?.win,
-        draws: row.all?.draw,
-        losses: row.all?.lose,
-        homePlayed: row.home?.played,
-        homeWins: row.home?.win,
-        homeDraws: row.home?.draw,
-        homeLosses: row.home?.lose,
-        awayPlayed: row.away?.played,
-        awayWins: row.away?.win,
-        awayDraws: row.away?.draw,
-        awayLosses: row.away?.lose,
-        homeGoalsFor: row.home?.goals?.for,
-        homeGoalsAgainst: row.home?.goals?.against,
-        awayGoalsFor: row.away?.goals?.for,
-        awayGoalsAgainst: row.away?.goals?.against,
+  for (const season of seasonsToTry) {
+    try {
+      const qs = new URLSearchParams({
+        league: String(EPL_LEAGUE_ID),
+        season: String(season),
       });
-    }
 
-    return map;
-  } catch {
-    return new Map();
+      const data = await fetchJson<{
+        response?: Array<{
+          league?: {
+            standings?: FootballStandingsRow[][];
+          };
+        }>;
+      }>(`${FOOTBALL_BASE}/standings?${qs.toString()}`, {
+        headers: { 'x-apisports-key': process.env.API_FOOTBALL_KEY! },
+      });
+
+      const rows = data.response?.[0]?.league?.standings?.[0] ?? [];
+      if (!rows.length) {
+        console.log('API-FOOTBALL standings empty for season:', season);
+        continue;
+      }
+
+      const map = new Map<string, TeamContext>();
+
+      for (const row of rows) {
+        const name = normalizeTeamName(row.team?.name ?? '');
+        if (!name) continue;
+
+        map.set(name, {
+          teamId: row.team?.id,
+          teamName: name,
+          rank: row.rank,
+          points: row.points,
+          form: row.form,
+          description: row.description,
+          goalsFor: row.all?.goals?.for,
+          goalsAgainst: row.all?.goals?.against,
+          played: row.all?.played,
+          wins: row.all?.win,
+          draws: row.all?.draw,
+          losses: row.all?.lose,
+          homePlayed: row.home?.played,
+          homeWins: row.home?.win,
+          homeDraws: row.home?.draw,
+          homeLosses: row.home?.lose,
+          awayPlayed: row.away?.played,
+          awayWins: row.away?.win,
+          awayDraws: row.away?.draw,
+          awayLosses: row.away?.lose,
+          homeGoalsFor: row.home?.goals?.for,
+          homeGoalsAgainst: row.home?.goals?.against,
+          awayGoalsFor: row.away?.goals?.for,
+          awayGoalsAgainst: row.away?.goals?.against,
+        });
+      }
+
+      console.log('API-FOOTBALL standings season hit:', season, map.size);
+      return map;
+    } catch (error) {
+      console.log('API-FOOTBALL standings failed for season:', season, error);
+    }
   }
+
+  return new Map();
 }
 
 function countTeamInjuries(items: FootballInjury[], teamName: string) {
@@ -424,6 +466,15 @@ export async function getLiveDashboard(round?: number) {
       mappedFixturesCount: mappedFixtures.length,
       mappedOddsCount: mappedOdds.length,
       standingsCount: standingsMap.size,
+      standingsTeamsSample: Array.from(standingsMap.keys()).slice(0, 10),
+      firstFixture: fixtureCards[0]
+        ? {
+            homeTeam: fixtureCards[0].homeTeam,
+            awayTeam: fixtureCards[0].awayTeam,
+            homeContext: fixtureCards[0].homeContext ?? null,
+            awayContext: fixtureCards[0].awayContext ?? null,
+          }
+        : null,
       unmatchedFixtures: unmatchedFixtures.slice(0, 10),
       skippedNoH2H: skippedNoH2H.slice(0, 10),
     },
