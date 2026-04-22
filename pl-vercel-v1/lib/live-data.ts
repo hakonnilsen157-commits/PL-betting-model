@@ -33,6 +33,58 @@ type FootballInjury = {
   player?: { name?: string; id?: number; type?: string; reason?: string };
 };
 
+type FootballStandingSide = {
+  played?: number;
+  win?: number;
+  draw?: number;
+  lose?: number;
+  goals?: {
+    for?: number;
+    against?: number;
+  };
+};
+
+type FootballStandingsRow = {
+  rank?: number;
+  points?: number;
+  form?: string;
+  description?: string;
+  team?: {
+    id?: number;
+    name?: string;
+  };
+  all?: FootballStandingSide;
+  home?: FootballStandingSide;
+  away?: FootballStandingSide;
+};
+
+type TeamContext = {
+  teamId?: number;
+  teamName: string;
+  rank?: number;
+  points?: number;
+  form?: string;
+  description?: string;
+  goalsFor?: number;
+  goalsAgainst?: number;
+  played?: number;
+  wins?: number;
+  draws?: number;
+  losses?: number;
+  homePlayed?: number;
+  homeWins?: number;
+  homeDraws?: number;
+  homeLosses?: number;
+  awayPlayed?: number;
+  awayWins?: number;
+  awayDraws?: number;
+  awayLosses?: number;
+  homeGoalsFor?: number;
+  homeGoalsAgainst?: number;
+  awayGoalsFor?: number;
+  awayGoalsAgainst?: number;
+};
+
 function isLiveMode() {
   return (process.env.DATA_MODE ?? 'mock') === 'live';
 }
@@ -43,6 +95,8 @@ function normalizeTeamName(name: string): string {
     .replace('Nottingham Forest', 'Nottm Forest')
     .replace('Wolverhampton Wanderers', 'Wolves')
     .replace('Manchester Utd', 'Manchester United')
+    .replace('Tottenham Hotspur', 'Tottenham')
+    .replace('Newcastle Utd', 'Newcastle United')
     .trim();
 }
 
@@ -96,19 +150,6 @@ export async function fetchLiveFixtures(): Promise<FootballFixture[]> {
     }
   );
 
-  console.log('RAW FIXTURES COUNT', data.response.length);
-  console.log(
-    'RAW FIXTURE SAMPLE',
-    data.response.slice(0, 10).map((f) => ({
-      id: f.fixture.id,
-      date: f.fixture.date,
-      status: f.fixture.status?.short,
-      round: f.league?.round,
-      home: f.teams.home.name,
-      away: f.teams.away.name,
-    }))
-  );
-
   return data.response
     .filter((f) => ['NS', 'TBD', 'PST'].includes(f.fixture.status?.short ?? 'NS'))
     .slice(0, MAX_FIXTURES);
@@ -149,6 +190,66 @@ export async function fetchLiveOdds(): Promise<OddsApiEvent[]> {
   return fetchJson<OddsApiEvent[]>(`${ODDS_BASE}/sports/${SPORT_KEY}/odds?${qs.toString()}`);
 }
 
+async function fetchLeagueStandingsMap(): Promise<Map<string, TeamContext>> {
+  if (!process.env.API_FOOTBALL_KEY) return new Map();
+
+  try {
+    const qs = new URLSearchParams({
+      league: String(EPL_LEAGUE_ID),
+      season: String(DEFAULT_SEASON),
+    });
+
+    const data = await fetchJson<{
+      response?: Array<{
+        league?: {
+          standings?: FootballStandingsRow[][];
+        };
+      }>;
+    }>(`${FOOTBALL_BASE}/standings?${qs.toString()}`, {
+      headers: { 'x-apisports-key': process.env.API_FOOTBALL_KEY! },
+    });
+
+    const rows = data.response?.[0]?.league?.standings?.[0] ?? [];
+    const map = new Map<string, TeamContext>();
+
+    for (const row of rows) {
+      const name = normalizeTeamName(row.team?.name ?? '');
+      if (!name) continue;
+
+      map.set(name, {
+        teamId: row.team?.id,
+        teamName: name,
+        rank: row.rank,
+        points: row.points,
+        form: row.form,
+        description: row.description,
+        goalsFor: row.all?.goals?.for,
+        goalsAgainst: row.all?.goals?.against,
+        played: row.all?.played,
+        wins: row.all?.win,
+        draws: row.all?.draw,
+        losses: row.all?.lose,
+        homePlayed: row.home?.played,
+        homeWins: row.home?.win,
+        homeDraws: row.home?.draw,
+        homeLosses: row.home?.lose,
+        awayPlayed: row.away?.played,
+        awayWins: row.away?.win,
+        awayDraws: row.away?.draw,
+        awayLosses: row.away?.lose,
+        homeGoalsFor: row.home?.goals?.for,
+        homeGoalsAgainst: row.home?.goals?.against,
+        awayGoalsFor: row.away?.goals?.for,
+        awayGoalsAgainst: row.away?.goals?.against,
+      });
+    }
+
+    return map;
+  } catch {
+    return new Map();
+  }
+}
+
 function countTeamInjuries(items: FootballInjury[], teamName: string) {
   return items.filter((x) => normalizeTeamName(x.team?.name ?? '') === normalizeTeamName(teamName)).length;
 }
@@ -168,6 +269,7 @@ export async function getLiveDashboard(round?: number) {
     };
   }
 
+  const standingsMap = await fetchLeagueStandingsMap();
   const liveFixtures = await fetchLiveFixtures().catch(() => [] as FootballFixture[]);
   const liveInjuries = await fetchLiveInjuriesByFixtureIds(
     liveFixtures.map((f) => f.fixture.id)
@@ -185,7 +287,12 @@ export async function getLiveDashboard(round?: number) {
     injuryMap.set(fixtureId, [...(injuryMap.get(fixtureId) ?? []), injury]);
   }
 
-  const mappedFixtures: MatchFixture[] = [];
+  const mappedFixtures: Array<
+    MatchFixture & {
+      homeContext?: TeamContext;
+      awayContext?: TeamContext;
+    }
+  > = [];
   const mappedOdds: OddsLine[] = [];
   const unmatchedFixtures: Array<{ home: string; away: string }> = [];
   const skippedNoH2H: Array<{ home: string; away: string; bookmaker?: string }> = [];
@@ -225,6 +332,8 @@ export async function getLiveDashboard(round?: number) {
         daysRestAway: 6,
         injuriesHome: countTeamInjuries(injuries, homeTeam),
         injuriesAway: countTeamInjuries(injuries, awayTeam),
+        homeContext: standingsMap.get(homeTeam),
+        awayContext: standingsMap.get(awayTeam),
       });
 
       mappedOdds.push({
@@ -267,6 +376,8 @@ export async function getLiveDashboard(round?: number) {
         daysRestAway: 6,
         injuriesHome: 0,
         injuriesAway: 0,
+        homeContext: standingsMap.get(homeTeam),
+        awayContext: standingsMap.get(awayTeam),
       });
 
       mappedOdds.push({
@@ -312,21 +423,9 @@ export async function getLiveDashboard(round?: number) {
       liveInjuriesCount: liveInjuries.length,
       mappedFixturesCount: mappedFixtures.length,
       mappedOddsCount: mappedOdds.length,
+      standingsCount: standingsMap.size,
       unmatchedFixtures: unmatchedFixtures.slice(0, 10),
       skippedNoH2H: skippedNoH2H.slice(0, 10),
-      sampleFixtures: liveFixtures.slice(0, 5).map((f) => ({
-        id: f.fixture.id,
-        home: normalizeTeamName(f.teams.home.name),
-        away: normalizeTeamName(f.teams.away.name),
-        round: f.league?.round,
-        date: f.fixture.date,
-      })),
-      sampleOdds: liveOdds.slice(0, 5).map((e) => ({
-        id: e.id,
-        home: normalizeTeamName(e.home_team),
-        away: normalizeTeamName(e.away_team),
-        bookmakers: e.bookmakers?.length ?? 0,
-      })),
     },
   };
 }
