@@ -84,7 +84,7 @@ export async function fetchLiveFixtures(): Promise<FootballFixture[]> {
   if (!process.env.API_FOOTBALL_KEY) throw new Error('Missing API_FOOTBALL_KEY');
 
   const from = new Date();
-  const to = new Date(Date.now() + 8 * 24 * 60 * 60 * 1000);
+  const to = new Date(Date.now() + 45 * 24 * 60 * 60 * 1000);
   const qs = new URLSearchParams({
     league: String(EPL_LEAGUE_ID),
     season: String(DEFAULT_SEASON),
