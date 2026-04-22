@@ -248,7 +248,6 @@ export async function getLiveDashboard(round?: number) {
     },
   };
 }
-
   const liveFixtures = await fetchLiveFixtures();
   const liveInjuries = await fetchLiveInjuriesByFixtureIds(liveFixtures.map((f) => f.fixture.id));
   const liveOdds = await fetchLiveOdds();
