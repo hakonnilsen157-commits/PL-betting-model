@@ -83,21 +83,22 @@ function parseTotals(bookmaker?: OddsApiBookmaker) {
 export async function fetchLiveFixtures(): Promise<FootballFixture[]> {
   if (!process.env.API_FOOTBALL_KEY) throw new Error('Missing API_FOOTBALL_KEY');
 
-  const from = new Date();
-  const to = new Date(Date.now() + 45 * 24 * 60 * 60 * 1000);
   const qs = new URLSearchParams({
     league: String(EPL_LEAGUE_ID),
     season: String(DEFAULT_SEASON),
-    from: from.toISOString().slice(0, 10),
-    to: to.toISOString().slice(0, 10),
     timezone: 'Europe/Oslo',
   });
 
-  const data = await fetchJson<{ response: FootballFixture[] }>(`${FOOTBALL_BASE}/fixtures?${qs.toString()}`, {
-    headers: { 'x-apisports-key': process.env.API_FOOTBALL_KEY! },
-  });
+  const data = await fetchJson<{ response: FootballFixture[] }>(
+    `${FOOTBALL_BASE}/fixtures?${qs.toString()}`,
+    {
+      headers: { 'x-apisports-key': process.env.API_FOOTBALL_KEY! },
+    }
+  );
 
-  return data.response.filter((f) => ['NS', 'TBD', 'PST'].includes(f.fixture.status?.short ?? 'NS')).slice(0, MAX_FIXTURES);
+  return data.response
+    .filter((f) => ['NS', 'TBD', 'PST'].includes(f.fixture.status?.short ?? 'NS'))
+    .slice(0, MAX_FIXTURES);
 }
 
 export async function fetchLiveInjuriesByFixtureIds(fixtureIds: number[]) {
