@@ -144,6 +144,9 @@ export async function getLiveDashboard(round?: number) {
       recommendations: getRoundRecommendations(selectedRound),
       source: 'mock',
       generatedAt: new Date().toISOString(),
+      debug: {
+        mode: 'mock',
+      },
     };
   }
 
@@ -161,12 +164,20 @@ export async function getLiveDashboard(round?: number) {
 
   const mappedFixtures: MatchFixture[] = [];
   const mappedOdds: OddsLine[] = [];
+  const unmatchedFixtures: Array<{ home: string; away: string }> = [];
+  const skippedNoH2H: Array<{ home: string; away: string; bookmaker?: string }> = [];
 
   for (const fixture of liveFixtures) {
     const homeTeam = normalizeTeamName(fixture.teams.home.name);
     const awayTeam = normalizeTeamName(fixture.teams.away.name);
     const event = oddsMap.get(`${homeTeam}__${awayTeam}`);
-    const bookmaker = event?.bookmakers?.[0];
+
+    if (!event) {
+      unmatchedFixtures.push({ home: homeTeam, away: awayTeam });
+      continue;
+    }
+
+    const bookmaker = event.bookmakers?.[0];
     const h2h = parseMoneyline(bookmaker);
     const totals = parseTotals(bookmaker);
     const injuries = injuryMap.get(fixture.fixture.id) ?? [];
@@ -174,7 +185,11 @@ export async function getLiveDashboard(round?: number) {
     const home = h2h.find((o) => normalizeTeamName(o.name) === homeTeam)?.price;
     const away = h2h.find((o) => normalizeTeamName(o.name) === awayTeam)?.price;
     const draw = h2h.find((o) => o.name.toLowerCase() === 'draw')?.price;
-    if (!home || !away || !draw) continue;
+
+    if (!home || !away || !draw) {
+      skippedNoH2H.push({ home: homeTeam, away: awayTeam, bookmaker: bookmaker?.title });
+      continue;
+    }
 
     mappedFixtures.push({
       id: String(fixture.fixture.id),
@@ -223,5 +238,28 @@ export async function getLiveDashboard(round?: number) {
     recommendations,
     source: 'live',
     generatedAt: new Date().toISOString(),
+    debug: {
+      mode: 'live',
+      liveFixturesCount: liveFixtures.length,
+      liveOddsCount: liveOdds.length,
+      liveInjuriesCount: liveInjuries.length,
+      mappedFixturesCount: mappedFixtures.length,
+      mappedOddsCount: mappedOdds.length,
+      unmatchedFixtures: unmatchedFixtures.slice(0, 10),
+      skippedNoH2H: skippedNoH2H.slice(0, 10),
+      sampleFixtures: liveFixtures.slice(0, 5).map((f) => ({
+        id: f.fixture.id,
+        home: normalizeTeamName(f.teams.home.name),
+        away: normalizeTeamName(f.teams.away.name),
+        round: f.league?.round,
+        date: f.fixture.date,
+      })),
+      sampleOdds: liveOdds.slice(0, 5).map((e) => ({
+        id: e.id,
+        home: normalizeTeamName(e.home_team),
+        away: normalizeTeamName(e.away_team),
+        bookmakers: e.bookmakers?.length ?? 0,
+      })),
+    },
   };
 }
