@@ -34,3 +34,4 @@ Dette er en Vercel-klar Next.js-app for en Premier League bettingmodell.
 - closing line / CLV-logg
 - expected lineups
 - team ratings fra live data i stedet for statisk fallback
+test deploy
