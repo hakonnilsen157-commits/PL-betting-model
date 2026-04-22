@@ -37,3 +37,4 @@ Dette er en Vercel-klar Next.js-app for en Premier League bettingmodell.
 test deploy
 test v2
 Test v21
+Test
