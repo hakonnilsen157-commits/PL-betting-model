@@ -36,3 +36,4 @@ Dette er en Vercel-klar Next.js-app for en Premier League bettingmodell.
 - team ratings fra live data i stedet for statisk fallback
 test deploy
 test v2
+Test v21
