@@ -164,6 +164,91 @@ export async function getLiveDashboard(round?: number) {
     };
   }
 
+  const liveOdds = await fetchLiveOdds();
+
+  const mappedFixtures: MatchFixture[] = [];
+  const mappedOdds: OddsLine[] = [];
+  const skippedNoH2H: Array<{ home: string; away: string; bookmaker?: string }> = [];
+
+  for (const event of liveOdds) {
+    const homeTeam = normalizeTeamName(event.home_team);
+    const awayTeam = normalizeTeamName(event.away_team);
+    const bookmaker = event.bookmakers?.[0];
+    const h2h = parseMoneyline(bookmaker);
+    const totals = parseTotals(bookmaker);
+
+    const home = h2h.find((o) => normalizeTeamName(o.name) === homeTeam)?.price;
+    const away = h2h.find((o) => normalizeTeamName(o.name) === awayTeam)?.price;
+    const draw = h2h.find((o) => o.name.toLowerCase() === 'draw')?.price;
+
+    if (!home || !away || !draw) {
+      skippedNoH2H.push({ home: homeTeam, away: awayTeam, bookmaker: bookmaker?.title });
+      continue;
+    }
+
+    mappedFixtures.push({
+      id: String(event.id),
+      round: round ?? 34,
+      kickoff: event.commence_time,
+      homeTeam,
+      awayTeam,
+      daysRestHome: 6,
+      daysRestAway: 6,
+      injuriesHome: 0,
+      injuriesAway: 0,
+    });
+
+    mappedOdds.push({
+      fixtureId: String(event.id),
+      bookmaker: bookmaker?.title ?? 'Market',
+      home,
+      draw,
+      away,
+      over2_5: totals.over2_5,
+      under2_5: totals.under2_5,
+      btts_yes: 1.9,
+      btts_no: 1.9,
+      capturedAt: bookmaker?.last_update ?? new Date().toISOString(),
+    });
+  }
+
+  const recommendations = mappedFixtures
+    .flatMap((fixture) => scoreFixture(fixture, mappedOdds))
+    .filter((rec) => rec.edge > 0.02 && rec.expectedValue > 0.02)
+    .sort((a, b) => b.expectedValue - a.expectedValue || b.edge - a.edge)
+    .slice(0, 10);
+
+  const fixtureCards = mappedFixtures.map((fixture) => {
+    const recs = scoreFixture(fixture, mappedOdds);
+    return {
+      ...fixture,
+      latestOdds: mappedOdds.find((o) => o.fixtureId === fixture.id),
+      topRecommendation: [...recs].sort((a, b) => b.expectedValue - a.expectedValue)[0],
+    };
+  });
+
+  return {
+    round: round ?? 34,
+    fixtures: fixtureCards,
+    recommendations,
+    source: 'live',
+    generatedAt: new Date().toISOString(),
+    debug: {
+      mode: 'live',
+      liveOddsCount: liveOdds.length,
+      mappedFixturesCount: mappedFixtures.length,
+      mappedOddsCount: mappedOdds.length,
+      skippedNoH2H: skippedNoH2H.slice(0, 10),
+      sampleOdds: liveOdds.slice(0, 5).map((e) => ({
+        id: e.id,
+        home: normalizeTeamName(e.home_team),
+        away: normalizeTeamName(e.away_team),
+        bookmakers: e.bookmakers?.length ?? 0,
+      })),
+    },
+  };
+}
+
   const liveFixtures = await fetchLiveFixtures();
   const liveInjuries = await fetchLiveInjuriesByFixtureIds(liveFixtures.map((f) => f.fixture.id));
   const liveOdds = await fetchLiveOdds();
