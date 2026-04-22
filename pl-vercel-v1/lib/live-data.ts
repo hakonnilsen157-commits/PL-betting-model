@@ -80,13 +80,6 @@ function parseTotals(bookmaker?: OddsApiBookmaker) {
   return { over2_5: over?.price ?? 1.95, under2_5: under?.price ?? 1.95 };
 }
 
-function parseBtts(bookmaker?: OddsApiBookmaker) {
-  const outcomes = bookmaker?.markets.find((m) => m.key === 'btts')?.outcomes ?? [];
-  const yes = outcomes.find((o) => o.name.toLowerCase() === 'yes');
-  const no = outcomes.find((o) => o.name.toLowerCase() === 'no');
-  return { btts_yes: yes?.price ?? 1.9, btts_no: no?.price ?? 1.9 };
-}
-
 export async function fetchLiveFixtures(): Promise<FootballFixture[]> {
   if (!process.env.API_FOOTBALL_KEY) throw new Error('Missing API_FOOTBALL_KEY');
 
@@ -129,7 +122,7 @@ export async function fetchLiveOdds(): Promise<OddsApiEvent[]> {
   const qs = new URLSearchParams({
     apiKey: process.env.ODDS_API_KEY,
     regions: ODDS_REGIONS,
-    markets: 'h2h,totals,btts',
+    markets: 'h2h,totals',
     oddsFormat: 'decimal',
     dateFormat: 'iso',
   });
@@ -176,7 +169,6 @@ export async function getLiveDashboard(round?: number) {
     const bookmaker = event?.bookmakers?.[0];
     const h2h = parseMoneyline(bookmaker);
     const totals = parseTotals(bookmaker);
-    const btts = parseBtts(bookmaker);
     const injuries = injuryMap.get(fixture.fixture.id) ?? [];
 
     const home = h2h.find((o) => normalizeTeamName(o.name) === homeTeam)?.price;
@@ -204,8 +196,8 @@ export async function getLiveDashboard(round?: number) {
       away,
       over2_5: totals.over2_5,
       under2_5: totals.under2_5,
-      btts_yes: btts.btts_yes,
-      btts_no: btts.btts_no,
+      btts_yes: 1.9,
+      btts_no: 1.9,
       capturedAt: bookmaker?.last_update ?? new Date().toISOString(),
     });
   }
