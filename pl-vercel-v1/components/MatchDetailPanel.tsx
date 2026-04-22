@@ -44,19 +44,6 @@ function pct(v?: number) {
   return `${(v * 100).toFixed(1)}%`;
 }
 
-function formatMarket(market: string) {
-  const map: Record<string, string> = {
-    home: 'Hjemmeseier',
-    draw: 'Uavgjort',
-    away: 'Borteseier',
-    over2_5: 'Over 2.5',
-    under2_5: 'Under 2.5',
-    btts_yes: 'Begge lag scorer',
-    btts_no: 'Begge lag scorer ikke',
-  };
-  return map[market] ?? market;
-}
-
 function formatDate(date: string) {
   try {
     return new Date(date).toLocaleString('no-NO', {
@@ -71,231 +58,309 @@ function formatDate(date: string) {
   }
 }
 
-function StatHelp({
+function formatMarket(market?: string) {
+  if (!market) return 'Ingen tydelig kandidat';
+  const map: Record<string, string> = {
+    home: 'Hjemmeseier',
+    draw: 'Uavgjort',
+    away: 'Borteseier',
+    over2_5: 'Over 2.5',
+    under2_5: 'Under 2.5',
+    btts_yes: 'Begge lag scorer',
+    btts_no: 'Begge lag scorer ikke',
+  };
+  return map[market] ?? market;
+}
+
+function InfoChip({
   label,
-  explanation,
+  value,
 }: {
   label: string;
-  explanation: string;
+  value: string;
 }) {
   return (
-    <span
-      title={explanation}
-      className="inline-flex cursor-help items-center gap-1 border-b border-dotted border-slate-400 text-slate-200"
-    >
-      {label}
-      <span className="rounded-full bg-slate-700 px-1.5 text-[10px] text-slate-300">i</span>
-    </span>
+    <div className="rounded-2xl border border-slate-800 bg-slate-900/80 p-4">
+      <div className="text-xs uppercase tracking-wide text-slate-500">{label}</div>
+      <div className="mt-2 text-lg font-semibold text-white">{value}</div>
+    </div>
+  );
+}
+
+function StatExplanation({
+  title,
+  text,
+}: {
+  title: string;
+  text: string;
+}) {
+  return (
+    <div className="rounded-2xl border border-slate-800 bg-slate-950/80 p-4">
+      <div className="text-sm font-semibold text-white">{title}</div>
+      <div className="mt-2 text-sm leading-6 text-slate-400">{text}</div>
+    </div>
   );
 }
 
 export default function MatchDetailPanel({
   fixture,
   recommendations,
-  onClose,
 }: {
   fixture: FixtureCard | null;
   recommendations: Recommendation[];
-  onClose?: () => void;
 }) {
   if (!fixture) {
     return (
-      <div className="rounded-2xl border border-slate-800 bg-slate-900/70 p-6 text-slate-300">
-        <h3 className="mb-2 text-lg font-semibold text-white">Kampdetaljer</h3>
-        <p>Trykk på en kamp for å se analyse, odds og anbefalte spill.</p>
+      <div className="rounded-3xl border border-slate-800 bg-slate-900/70 p-8">
+        <h3 className="text-xl font-semibold text-white">Kampdetalj</h3>
+        <p className="mt-3 text-sm leading-6 text-slate-400">
+          Velg en kamp til venstre for å se analyse, odds og modellens vurderinger.
+        </p>
       </div>
     );
   }
 
-  const matchRecs = recommendations
-    .filter((r) => String(r.fixtureId) === String(fixture.id))
-    .sort((a, b) => b.expectedValue - a.expectedValue || b.edge - a.edge);
+  const topRecommendation = recommendations[0] ?? fixture.topRecommendation;
 
-  const top = matchRecs[0];
+  const analysisText = (() => {
+    if (!topRecommendation) {
+      return 'Modellen har foreløpig ikke funnet et tydelig verdi-spill i denne kampen.';
+    }
 
-  const strengthText = (() => {
-    if (!top) return 'Modellen har foreløpig ikke funnet et tydelig verdi-spill i denne kampen.';
-    if (top.market === 'home') return `${fixture.homeTeam} vurderes som den sterkeste siden i denne kampen.`;
-    if (top.market === 'away') return `${fixture.awayTeam} vurderes som den sterkeste siden i denne kampen.`;
-    if (top.market === 'draw') return 'Modellen forventer en relativt jevn kamp med brukbar sannsynlighet for uavgjort.';
-    if (top.market === 'over2_5') return 'Modellen ser signaler om en mer åpen kamp med sjanser og mål begge veier.';
-    if (top.market === 'under2_5') return 'Modellen forventer en mer kontrollert og målfattig kamp.';
-    if (top.market === 'btts_yes') return 'Modellen forventer at begge lag har gode muligheter til å score.';
-    if (top.market === 'btts_no') return 'Modellen forventer at minst ett av lagene kan bli holdt til null mål.';
+    if (topRecommendation.market === 'home') {
+      return `${fixture.homeTeam} vurderes som den sterkeste siden i denne kampen basert på modellens kombinasjon av lagstyrke, hjemmefordel og markedsforankring.`;
+    }
+
+    if (topRecommendation.market === 'away') {
+      return `${fixture.awayTeam} vurderes som den sterkeste siden i denne kampen basert på modellens kombinasjon av lagstyrke, bortelagets kvalitet og markedsforankring.`;
+    }
+
+    if (topRecommendation.market === 'draw') {
+      return 'Modellen vurderer dette som en jevn kamp der sannsynligheten for uavgjort er høyere enn markedet priser inn.';
+    }
+
+    if (topRecommendation.market === 'over2_5') {
+      return 'Modellen ser tegn til en kamp med gode sjanser og høyere målsannsynlighet enn markedet tilsier.';
+    }
+
+    if (topRecommendation.market === 'under2_5') {
+      return 'Modellen ser tegn til en mer låst kamp med lavere målsannsynlighet enn markedet tilsier.';
+    }
+
+    if (topRecommendation.market === 'btts_yes') {
+      return 'Modellen forventer at begge lag har gode muligheter til å score i denne kampen.';
+    }
+
+    if (topRecommendation.market === 'btts_no') {
+      return 'Modellen forventer at minst ett av lagene kan bli holdt til null.';
+    }
+
     return 'Modellen har vurdert flere markeder i denne kampen.';
   })();
 
   return (
-    <div className="rounded-2xl border border-slate-800 bg-slate-900/80 p-6 text-slate-100">
-      <div className="mb-5 flex items-start justify-between gap-4">
-        <div>
-          <div className="mb-1 text-xs uppercase tracking-wide text-slate-400">Kampdetalj</div>
-          <h3 className="text-2xl font-bold">
-            {fixture.homeTeam} vs {fixture.awayTeam}
-          </h3>
-          <div className="mt-2 text-sm text-slate-400">
-            Kampstart: {formatDate(fixture.kickoff)}
-          </div>
-          <div className="mt-1 text-sm text-slate-400">
-            Bookmaker: {fixture.latestOdds?.bookmaker ?? 'Ukjent'}
-          </div>
+    <div className="rounded-3xl border border-slate-800 bg-slate-900/70 p-6 md:p-8">
+      <div className="flex flex-col gap-4 border-b border-slate-800 pb-6">
+        <div className="inline-flex w-fit rounded-full border border-slate-700 bg-slate-950/80 px-3 py-1 text-xs text-slate-300">
+          Kampdetalj
         </div>
 
-        {onClose ? (
-          <button
-            onClick={onClose}
-            className="rounded-xl border border-slate-700 px-3 py-2 text-sm text-slate-200 hover:bg-slate-800"
-          >
-            Lukk
-          </button>
+        <div>
+          <h2 className="text-2xl font-bold text-white md:text-3xl">
+            {fixture.homeTeam} vs {fixture.awayTeam}
+          </h2>
+          <div className="mt-3 flex flex-wrap gap-3 text-sm text-slate-400">
+            <span>Kampstart: {formatDate(fixture.kickoff)}</span>
+            <span>•</span>
+            <span>Bookmaker: {fixture.latestOdds?.bookmaker ?? 'Ukjent'}</span>
+          </div>
+        </div>
+      </div>
+
+      <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <InfoChip
+          label="Toppspill"
+          value={formatMarket(topRecommendation?.market)}
+        />
+        <InfoChip
+          label="EV"
+          value={pct(topRecommendation?.expectedValue)}
+        />
+        <InfoChip
+          label="Edge"
+          value={pct(topRecommendation?.edge)}
+        />
+        <InfoChip
+          label="Confidence"
+          value={topRecommendation ? `${topRecommendation.confidence.toFixed(0)}/100` : '–'}
+        />
+      </div>
+
+      <div className="mt-6 rounded-2xl border border-slate-800 bg-slate-950/80 p-5">
+        <h3 className="text-lg font-semibold text-white">Kort analyse</h3>
+        <p className="mt-3 text-sm leading-7 text-slate-300">{analysisText}</p>
+        {topRecommendation?.note ? (
+          <p className="mt-3 text-sm leading-6 text-slate-400">{topRecommendation.note}</p>
         ) : null}
       </div>
 
-      <div className="mb-6 grid gap-3 md:grid-cols-4">
-        <div className="rounded-xl bg-slate-800/70 p-4">
-          <div className="mb-1 text-xs text-slate-400">Toppspill</div>
-          <div className="font-semibold text-white">{top ? formatMarket(top.market) : 'Ingen tydelig kandidat'}</div>
-        </div>
-        <div className="rounded-xl bg-slate-800/70 p-4">
-          <div className="mb-1 text-xs text-slate-400">
-            <StatHelp
-              label="EV"
-              explanation="EV betyr forventet verdi. Positiv EV betyr at modellen mener oddsen er bedre enn den burde være."
-            />
-          </div>
-          <div className="font-semibold text-white">{top ? pct(top.expectedValue) : '–'}</div>
-        </div>
-        <div className="rounded-xl bg-slate-800/70 p-4">
-          <div className="mb-1 text-xs text-slate-400">
-            <StatHelp
-              label="Edge"
-              explanation="Edge er forskjellen mellom modellens sannsynlighet og bookmakerens implisitte sannsynlighet."
-            />
-          </div>
-          <div className="font-semibold text-white">{top ? pct(top.edge) : '–'}</div>
-        </div>
-        <div className="rounded-xl bg-slate-800/70 p-4">
-          <div className="mb-1 text-xs text-slate-400">
-            <StatHelp
-              label="Confidence"
-              explanation="Confidence er modellens tillit til anbefalingen, basert på signalstyrke og datakvalitet."
-            />
-          </div>
-          <div className="font-semibold text-white">{top ? `${top.confidence.toFixed(0)}/100` : '–'}</div>
-        </div>
-      </div>
-
-      <div className="mb-6 rounded-xl border border-slate-800 bg-slate-950/60 p-4">
-        <h4 className="mb-2 text-base font-semibold text-white">Kort analyse</h4>
-        <p className="text-sm leading-6 text-slate-300">{strengthText}</p>
-        {top ? <p className="mt-3 text-sm text-slate-400">{top.note}</p> : null}
-      </div>
-
-      <div className="mb-6 grid gap-4 md:grid-cols-2">
-        <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-4">
-          <h4 className="mb-3 font-semibold text-white">{fixture.homeTeam}</h4>
-          <div className="space-y-2 text-sm text-slate-300">
-            <div>Hviledager: {fixture.daysRestHome ?? '–'}</div>
-            <div>Skader: {fixture.injuriesHome ?? 0}</div>
-            <div>Hjemmefordel: Modellen gir automatisk et lite pluss til hjemmelaget.</div>
-            <div>Markedsvurdering: Brukes som anker slik at modellen ikke går for langt fra oddsen.</div>
-          </div>
-        </div>
-
-        <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-4">
-          <h4 className="mb-3 font-semibold text-white">{fixture.awayTeam}</h4>
-          <div className="space-y-2 text-sm text-slate-300">
-            <div>Hviledager: {fixture.daysRestAway ?? '–'}</div>
-            <div>Skader: {fixture.injuriesAway ?? 0}</div>
-            <div>Bortejustering: Modellen justerer litt ned for bortebane.</div>
-            <div>Markedsvurdering: Brukes som anker også for bortelaget.</div>
-          </div>
-        </div>
-      </div>
-
-      <div className="mb-6 rounded-xl border border-slate-800 bg-slate-950/60 p-4">
-        <h4 className="mb-3 font-semibold text-white">Oddsoversikt</h4>
-        <div className="grid gap-3 text-sm md:grid-cols-3">
-          <div className="rounded-lg bg-slate-800/70 p-3">
-            <div className="text-slate-400">H / U / B</div>
-            <div className="mt-2 text-slate-100">
-              H: {fixture.latestOdds?.home ?? '–'} <br />
-              U: {fixture.latestOdds?.draw ?? '–'} <br />
-              B: {fixture.latestOdds?.away ?? '–'}
+      <div className="mt-6 grid gap-4 md:grid-cols-2">
+        <div className="rounded-2xl border border-slate-800 bg-slate-950/80 p-5">
+          <h3 className="text-lg font-semibold text-white">{fixture.homeTeam}</h3>
+          <div className="mt-4 space-y-3 text-sm text-slate-300">
+            <div className="flex justify-between gap-4">
+              <span className="text-slate-400">Hviledager</span>
+              <span>{fixture.daysRestHome ?? '–'}</span>
+            </div>
+            <div className="flex justify-between gap-4">
+              <span className="text-slate-400">Skader</span>
+              <span>{fixture.injuriesHome ?? 0}</span>
+            </div>
+            <div className="pt-2 text-slate-400">
+              Modellen gir hjemmelaget et lite løft gjennom hjemmefordel, men dette balanseres mot markedsoddsen.
             </div>
           </div>
-          <div className="rounded-lg bg-slate-800/70 p-3">
-            <div className="text-slate-400">Over / Under 2.5</div>
-            <div className="mt-2 text-slate-100">
-              Over: {fixture.latestOdds?.over2_5 ?? '–'} <br />
-              Under: {fixture.latestOdds?.under2_5 ?? '–'}
+        </div>
+
+        <div className="rounded-2xl border border-slate-800 bg-slate-950/80 p-5">
+          <h3 className="text-lg font-semibold text-white">{fixture.awayTeam}</h3>
+          <div className="mt-4 space-y-3 text-sm text-slate-300">
+            <div className="flex justify-between gap-4">
+              <span className="text-slate-400">Hviledager</span>
+              <span>{fixture.daysRestAway ?? '–'}</span>
             </div>
-          </div>
-          <div className="rounded-lg bg-slate-800/70 p-3">
-            <div className="text-slate-400">BTTS</div>
-            <div className="mt-2 text-slate-100">
-              Ja: {fixture.latestOdds?.btts_yes ?? '–'} <br />
-              Nei: {fixture.latestOdds?.btts_no ?? '–'}
+            <div className="flex justify-between gap-4">
+              <span className="text-slate-400">Skader</span>
+              <span>{fixture.injuriesAway ?? 0}</span>
+            </div>
+            <div className="pt-2 text-slate-400">
+              Bortelaget justeres litt ned for bortebane, men markedsvurderingen holder modellen realistisk.
             </div>
           </div>
         </div>
       </div>
 
-      <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-4">
-        <h4 className="mb-3 font-semibold text-white">Modellens spillvurderinger</h4>
-        {matchRecs.length === 0 ? (
-          <p className="text-sm text-slate-400">Ingen spill ble kvalifisert i denne kampen med dagens filter.</p>
+      <div className="mt-6 rounded-2xl border border-slate-800 bg-slate-950/80 p-5">
+        <h3 className="text-lg font-semibold text-white">Oddsoversikt</h3>
+
+        <div className="mt-4 grid gap-4 md:grid-cols-3">
+          <div className="rounded-2xl bg-slate-900/80 p-4">
+            <div className="text-sm text-slate-400">H / U / B</div>
+            <div className="mt-3 space-y-2 text-sm text-slate-200">
+              <div className="flex justify-between">
+                <span>Hjemme</span>
+                <span>{fixture.latestOdds?.home ?? '–'}</span>
+              </div>
+              <div className="flex justify-between">
+                <span>Uavgjort</span>
+                <span>{fixture.latestOdds?.draw ?? '–'}</span>
+              </div>
+              <div className="flex justify-between">
+                <span>Borte</span>
+                <span>{fixture.latestOdds?.away ?? '–'}</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="rounded-2xl bg-slate-900/80 p-4">
+            <div className="text-sm text-slate-400">Over / Under 2.5</div>
+            <div className="mt-3 space-y-2 text-sm text-slate-200">
+              <div className="flex justify-between">
+                <span>Over 2.5</span>
+                <span>{fixture.latestOdds?.over2_5 ?? '–'}</span>
+              </div>
+              <div className="flex justify-between">
+                <span>Under 2.5</span>
+                <span>{fixture.latestOdds?.under2_5 ?? '–'}</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="rounded-2xl bg-slate-900/80 p-4">
+            <div className="text-sm text-slate-400">BTTS</div>
+            <div className="mt-3 space-y-2 text-sm text-slate-200">
+              <div className="flex justify-between">
+                <span>Ja</span>
+                <span>{fixture.latestOdds?.btts_yes ?? '–'}</span>
+              </div>
+              <div className="flex justify-between">
+                <span>Nei</span>
+                <span>{fixture.latestOdds?.btts_no ?? '–'}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="mt-6">
+        <h3 className="mb-4 text-lg font-semibold text-white">Hva betyr tallene?</h3>
+        <div className="grid gap-4 md:grid-cols-2">
+          <StatExplanation
+            title="EV"
+            text="Expected Value. Positiv EV betyr at modellen mener oddsen er bedre enn den burde være."
+          />
+          <StatExplanation
+            title="Fair odds"
+            text="Modellens beregnede 'rette' odds basert på sannsynligheten modellen kommer frem til."
+          />
+          <StatExplanation
+            title="Edge"
+            text="Forskjellen mellom modellens vurdering og bookmakerens implisitte sannsynlighet."
+          />
+          <StatExplanation
+            title="Confidence"
+            text="En samlet tillitsindikator basert på signalstyrke, datagrunnlag og hvor tydelig verdien er."
+          />
+        </div>
+      </div>
+
+      <div className="mt-6 rounded-2xl border border-slate-800 bg-slate-950/80 p-5">
+        <h3 className="text-lg font-semibold text-white">Modellens spillvurderinger</h3>
+
+        {recommendations.length === 0 ? (
+          <p className="mt-4 text-sm text-slate-400">
+            Ingen kvalifiserte spill i denne kampen akkurat nå.
+          </p>
         ) : (
-          <div className="space-y-3">
-            {matchRecs.map((rec) => (
+          <div className="mt-4 space-y-4">
+            {recommendations.map((rec) => (
               <div
                 key={`${rec.fixtureId}-${rec.market}`}
-                className="rounded-xl border border-slate-800 bg-slate-900/70 p-4"
+                className="rounded-2xl border border-slate-800 bg-slate-900/80 p-4"
               >
-                <div className="mb-2 flex flex-wrap items-center justify-between gap-3">
-                  <div className="font-semibold text-white">{formatMarket(rec.market)}</div>
-                  <div className="text-sm text-emerald-300">EV {pct(rec.expectedValue)}</div>
-                </div>
+                <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                  <div>
+                    <div className="text-lg font-semibold text-white">{formatMarket(rec.market)}</div>
+                    <div className="mt-1 text-sm text-slate-400">{rec.note}</div>
+                  </div>
 
-                <div className="grid gap-3 text-sm md:grid-cols-5">
-                  <div>
-                    <div className="text-slate-400">
-                      <StatHelp
-                        label="Modell"
-                        explanation="Modellens vurderte sannsynlighet for at spillet skal gå inn."
-                      />
-                    </div>
-                    <div className="mt-1 text-slate-100">{pct(rec.modelProbability)}</div>
-                  </div>
-                  <div>
-                    <div className="text-slate-400">
-                      <StatHelp
-                        label="Marked"
-                        explanation="Bookmakerens implisitte sannsynlighet basert på oddsen."
-                      />
-                    </div>
-                    <div className="mt-1 text-slate-100">{pct(rec.impliedProbability)}</div>
-                  </div>
-                  <div>
-                    <div className="text-slate-400">
-                      <StatHelp
-                        label="Fair odds"
-                        explanation="Den oddsen modellen mener er mest korrekt."
-                      />
-                    </div>
-                    <div className="mt-1 text-slate-100">{rec.fairOdds}</div>
-                  </div>
-                  <div>
-                    <div className="text-slate-400">Bookmaker</div>
-                    <div className="mt-1 text-slate-100">{rec.bookmakerOdds}</div>
-                  </div>
-                  <div>
-                    <div className="text-slate-400">Confidence</div>
-                    <div className="mt-1 text-slate-100">{rec.confidence.toFixed(0)}/100</div>
+                  <div className="rounded-full bg-emerald-500/10 px-3 py-1 text-sm font-medium text-emerald-300">
+                    EV {pct(rec.expectedValue)}
                   </div>
                 </div>
 
-                <div className="mt-3 text-sm text-slate-400">{rec.note}</div>
+                <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+                  <div className="rounded-xl bg-slate-950/80 p-3">
+                    <div className="text-xs text-slate-500">Modellsannsynlighet</div>
+                    <div className="mt-1 font-medium text-white">{pct(rec.modelProbability)}</div>
+                  </div>
+                  <div className="rounded-xl bg-slate-950/80 p-3">
+                    <div className="text-xs text-slate-500">Markedssannsynlighet</div>
+                    <div className="mt-1 font-medium text-white">{pct(rec.impliedProbability)}</div>
+                  </div>
+                  <div className="rounded-xl bg-slate-950/80 p-3">
+                    <div className="text-xs text-slate-500">Fair odds</div>
+                    <div className="mt-1 font-medium text-white">{rec.fairOdds}</div>
+                  </div>
+                  <div className="rounded-xl bg-slate-950/80 p-3">
+                    <div className="text-xs text-slate-500">Bookmakerodds</div>
+                    <div className="mt-1 font-medium text-white">{rec.bookmakerOdds}</div>
+                  </div>
+                  <div className="rounded-xl bg-slate-950/80 p-3">
+                    <div className="text-xs text-slate-500">Confidence</div>
+                    <div className="mt-1 font-medium text-white">{rec.confidence.toFixed(0)}/100</div>
+                  </div>
+                </div>
               </div>
             ))}
           </div>
