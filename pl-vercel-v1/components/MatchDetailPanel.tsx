@@ -15,6 +15,33 @@ type Recommendation = {
   note: string;
 };
 
+type TeamContext = {
+  teamId?: number;
+  teamName: string;
+  rank?: number;
+  points?: number;
+  form?: string;
+  description?: string;
+  goalsFor?: number;
+  goalsAgainst?: number;
+  played?: number;
+  wins?: number;
+  draws?: number;
+  losses?: number;
+  homePlayed?: number;
+  homeWins?: number;
+  homeDraws?: number;
+  homeLosses?: number;
+  awayPlayed?: number;
+  awayWins?: number;
+  awayDraws?: number;
+  awayLosses?: number;
+  homeGoalsFor?: number;
+  homeGoalsAgainst?: number;
+  awayGoalsFor?: number;
+  awayGoalsAgainst?: number;
+};
+
 type FixtureCard = {
   id: string;
   round: number;
@@ -37,6 +64,8 @@ type FixtureCard = {
     capturedAt?: string;
   };
   topRecommendation?: Recommendation;
+  homeContext?: TeamContext;
+  awayContext?: TeamContext;
 };
 
 function pct(v?: number) {
@@ -72,67 +101,80 @@ function formatMarket(market?: string) {
   return map[market] ?? market;
 }
 
-function safeNum(n?: number) {
-  return typeof n === 'number' && !Number.isNaN(n) ? n : 0;
+function formLabel(form?: string) {
+  if (!form) return 'Ikke tilgjengelig';
+  return form;
 }
 
-function teamLeanText(
-  fixture: FixtureCard,
-  rec?: Recommendation
-) {
-  if (!rec) {
-    return `Modellen har foreløpig ikke funnet et tydelig verdi-spill i oppgjøret mellom ${fixture.homeTeam} og ${fixture.awayTeam}.`;
+function buildPreviewText(fixture: FixtureCard, rec?: Recommendation) {
+  const home = fixture.homeContext;
+  const away = fixture.awayContext;
+
+  const parts: string[] = [];
+
+  if (home?.rank && away?.rank) {
+    parts.push(
+      `${fixture.homeTeam} går inn til kampen som nummer ${home.rank} på tabellen, mens ${fixture.awayTeam} ligger på plass ${away.rank}.`
+    );
   }
 
-  if (rec.market === 'home') {
-    return `${fixture.homeTeam} vurderes som den mest interessante siden i dette oppgjøret. Modellen mener at hjemmelaget prises litt for høyt av markedet, samtidig som hjemmefordelen fortsatt gir et viktig løft i et jevnt kampbilde.`;
+  if (home?.form || away?.form) {
+    parts.push(
+      `${fixture.homeTeam} har formlinje ${formLabel(home?.form)}, mens ${fixture.awayTeam} kommer inn med ${formLabel(away?.form)}.`
+    );
   }
 
-  if (rec.market === 'away') {
-    return `${fixture.awayTeam} vurderes som den mest interessante siden i dette oppgjøret. Modellen mener at bortelaget har bedre muligheter enn oddsen fullt ut gjenspeiler, og at markedet kan være litt for konservativt på bortesiden.`;
+  if (home?.goalsFor !== undefined && away?.goalsFor !== undefined) {
+    parts.push(
+      `${fixture.homeTeam} står med ${home.goalsFor} scorede mål så langt, mens ${fixture.awayTeam} har scoret ${away.goalsFor}.`
+    );
   }
 
-  if (rec.market === 'draw') {
-    return `Modellen leser dette som en forholdsvis jevn kamp der sannsynligheten for uavgjort kan være litt høyere enn markedet tilsier.`;
+  if (rec?.market === 'home') {
+    parts.push(
+      `Modellen heller mot hjemmelaget fordi kombinasjonen av hjemmebane, pris i markedet og total kampkontekst peker svakt i ${fixture.homeTeam}s favør.`
+    );
+  } else if (rec?.market === 'away') {
+    parts.push(
+      `Modellen heller mot bortelaget fordi oddsen ser litt for høy ut relativt til den sannsynligheten modellen gir ${fixture.awayTeam}.`
+    );
+  } else if (rec?.market === 'draw') {
+    parts.push(
+      `Sannsynlighetsbildet fremstår jevnt nok til at uavgjort fremstår som et mer interessant utfall enn markedet tilsier.`
+    );
+  } else if (rec?.market === 'over2_5') {
+    parts.push(
+      `Kampbildet vurderes som åpent nok til at over 2.5 mål kan være bedre priset enn markedet tilsier.`
+    );
+  } else if (rec?.market === 'under2_5') {
+    parts.push(
+      `Modellen ser dette som en kamp som kan bli strammere enn det oddsbildet antyder.`
+    );
   }
 
-  if (rec.market === 'over2_5') {
-    return `Modellen forventer et mer åpent kampbilde enn markedet fullt ut priser inn, og det gjør over-spillet interessant.`;
+  if (parts.length === 0) {
+    return `Modellen har foreløpig ikke nok signalstyrke til å lage en tydelig preview for denne kampen.`;
   }
 
-  if (rec.market === 'under2_5') {
-    return `Modellen forventer en strammere og mer kontrollert kamp enn oddsbildet tilsier, noe som gjør under-spillet interessant.`;
-  }
-
-  if (rec.market === 'btts_yes') {
-    return `Begge lag vurderes å ha nok offensivt potensial til at begge kan komme på scoringslisten.`;
-  }
-
-  if (rec.market === 'btts_no') {
-    return `Minst ett av lagene kan få problemer med å score i dette oppgjøret, ifølge modellens sannsynlighetsbilde.`;
-  }
-
-  return `Modellen har identifisert ${formatMarket(rec.market)} som det mest interessante markedet i denne kampen.`;
+  return parts.join(' ');
 }
 
 function buildWhyThisPick(fixture: FixtureCard, rec?: Recommendation) {
   const lines: string[] = [];
-  if (!rec) return lines;
+  const home = fixture.homeContext;
+  const away = fixture.awayContext;
 
-  const homeRest = safeNum(fixture.daysRestHome);
-  const awayRest = safeNum(fixture.daysRestAway);
-  const homeInj = safeNum(fixture.injuriesHome);
-  const awayInj = safeNum(fixture.injuriesAway);
+  if (!rec) return lines;
 
   if (rec.bookmakerOdds > rec.fairOdds) {
     lines.push(
-      `Markedet tilbyr ${rec.bookmakerOdds} i odds, mens modellen estimerer fair odds til ${rec.fairOdds}. Det er selve kjernen i hvorfor dette blir vurdert som et verdi-spill.`
+      `Markedet tilbyr ${rec.bookmakerOdds} i odds, mens modellen estimerer fair odds til ${rec.fairOdds}. Dette er hovedgrunnen til at spillet fremstår attraktivt.`
     );
   }
 
   if (rec.edge >= 0.04) {
     lines.push(
-      `Edge på ${pct(rec.edge)} er relativt sterk. Det betyr at modellens sannsynlighet ligger tydelig over bookmakerens implisitte sannsynlighet.`
+      `Edge på ${pct(rec.edge)} er relativt sterk. Modellen mener altså at dette utfallet har høyere sannsynlighet enn bookmakerens odds antyder.`
     );
   } else if (rec.edge > 0) {
     lines.push(
@@ -140,76 +182,34 @@ function buildWhyThisPick(fixture: FixtureCard, rec?: Recommendation) {
     );
   }
 
-  if (rec.market === 'home') {
+  if (home?.form && away?.form) {
     lines.push(
-      `${fixture.homeTeam} får støtte av hjemmebane, publikum og kampmiljø. I kamper der prisbildet allerede er ganske jevnt, kan det være nok til å vippe caset i hjemmelagets favør.`
-    );
-
-    if (homeRest > awayRest) {
-      lines.push(
-        `${fixture.homeTeam} ser også ut til å komme inn med litt bedre hvile enn motstanderen, noe som kan bidra positivt i kampbildet.`
-      );
-    }
-
-    if (awayInj > homeInj) {
-      lines.push(
-        `${fixture.awayTeam} ser i tillegg litt mer svekket ut på skadesiden enn hjemmelaget, noe som styrker caset ytterligere.`
-      );
-    }
-  }
-
-  if (rec.market === 'away') {
-    lines.push(
-      `${fixture.awayTeam} vurderes som mer konkurransedyktige enn markedet tilsier, og modellen mener at bortebanefaktoren kan være litt overpriset i oddsen.`
-    );
-
-    if (awayRest >= homeRest) {
-      lines.push(
-        `${fixture.awayTeam} taper heller ikke restitusjonsbildet tydelig mot hjemmelaget, noe som holder bortecaset levende.`
-      );
-    }
-
-    if (homeInj > awayInj) {
-      lines.push(
-        `${fixture.homeTeam} ser ikke friskere ut enn bortelaget, og det svekker hjemmecaset sammenlignet med markedsbildet.`
-      );
-    }
-  }
-
-  if (rec.market === 'draw') {
-    lines.push(
-      `Kampen fremstår som relativt balansert i modellens sannsynlighetsbilde, og uavgjort blir derfor interessant når oddsen er høy nok.`
+      `Formmessig kommer ${fixture.homeTeam} inn med ${home.form}, mens ${fixture.awayTeam} står med ${away.form}. Dette brukes som en del av kampkonteksten i vurderingen.`
     );
   }
 
-  if (rec.market === 'over2_5') {
+  if (home?.rank && away?.rank) {
     lines.push(
-      `Totalspillet peker mot en kamp med mer åpenhet og flere farlige angrep enn markedet fullt ut priser inn.`
+      `Tabellmessig ligger ${fixture.homeTeam} på plass ${home.rank}, mens ${fixture.awayTeam} ligger på plass ${away.rank}. Det gir modellen et bedre grunnlag for å tolke prisbildet.`
     );
   }
 
-  if (rec.market === 'under2_5') {
+  if (rec.market === 'home' && home?.homeWins !== undefined) {
     lines.push(
-      `Modellen forventer en mer kontrollert rytme og færre store sjanser enn det oddsmarkedet antyder.`
+      `${fixture.homeTeam} sin hjemmeprofil brukes som støttefaktor i vurderingen, særlig når markedet allerede priser kampen forholdsvis jevnt.`
     );
   }
 
-  if (rec.market === 'btts_yes') {
+  if (rec.market === 'away' && away?.awayWins !== undefined) {
     lines.push(
-      `Begge lag vurderes å ha nok offensiv kapasitet til å skape scoringsmuligheter i samme kamp.`
-    );
-  }
-
-  if (rec.market === 'btts_no') {
-    lines.push(
-      `Modellen ser en reell sjanse for at minst ett lag ikke får kampen dit de ønsker offensivt.`
+      `${fixture.awayTeam} sin bortekapasitet brukes som en viktig kontroll mot at bortesiden ikke undervurderes for mye.`
     );
   }
 
   lines.push(
     `Confidence på ${rec.confidence.toFixed(
       0
-    )}/100 sier at dette er et spill med brukbar støtte i modellen, men fortsatt ikke et blindt “må-spilles”-spill.`
+    )}/100 tilsier at dette er et spill med brukbar støtte i modellen, men fortsatt ikke et blindt “må-spilles”-spill.`
   );
 
   return lines.slice(0, 5);
@@ -221,7 +221,7 @@ function buildRiskSection(fixture: FixtureCard, rec?: Recommendation) {
 
   if (rec.confidence < 55) {
     risks.push(
-      `Confidence er ikke skyhøy, så caset bør sees på som et strukturert verdi-spill heller enn et ekstremt sterkt signal.`
+      `Confidence er ikke skyhøy, så dette bør tolkes som et strukturert verdi-spill heller enn et ekstremt sterkt signal.`
     );
   }
 
@@ -233,7 +233,7 @@ function buildRiskSection(fixture: FixtureCard, rec?: Recommendation) {
 
   if (rec.market === 'home') {
     risks.push(
-      `Hvis ${fixture.awayTeam} scorer først eller kontrollerer tempoet, kan hjemmecaset svekkes raskt.`
+      `Hvis ${fixture.awayTeam} scorer først eller lykkes med å kontrollere tempoet, kan hjemmecaset svekkes raskt.`
     );
   }
 
@@ -243,44 +243,45 @@ function buildRiskSection(fixture: FixtureCard, rec?: Recommendation) {
     );
   }
 
-  if (rec.market === 'draw') {
-    risks.push(
-      `Uavgjort har høy kampvarians. Ett tidlig mål kan endre hele sannsynlighetsbildet.`
-    );
-  }
-
   risks.push(
-    `Konkrete ting som dommerprofil, full spillerform og siste fem kamper er ennå ikke fullt koblet inn i modellen.`
+    `Spillerform, dommerprofil og full skadeanalyse er fortsatt ikke komplett modellert, så previewen er ikke fullt ut “redaksjonell” enda.`
   );
 
   return risks.slice(0, 4);
 }
 
-function buildTeamAngles(
-  team: string,
-  side: 'home' | 'away',
-  restDays?: number,
-  injuries?: number
-) {
+function buildTeamAngles(ctx: TeamContext | undefined, side: 'home' | 'away') {
   const lines: string[] = [];
 
-  lines.push(`Hviledager: ${restDays ?? '–'}`);
-  lines.push(`Registrerte skader: ${injuries ?? 0}`);
+  if (!ctx) {
+    lines.push('Detaljert lagkontekst er ikke tilgjengelig akkurat nå.');
+    return lines;
+  }
+
+  if (ctx.rank !== undefined && ctx.points !== undefined) {
+    lines.push(`Tabellplass: ${ctx.rank} | Poeng: ${ctx.points}`);
+  }
+
+  if (ctx.form) {
+    lines.push(`Form siste kamper: ${ctx.form}`);
+  }
+
+  if (ctx.goalsFor !== undefined && ctx.goalsAgainst !== undefined) {
+    lines.push(`Målscore: ${ctx.goalsFor} for / ${ctx.goalsAgainst} mot`);
+  }
 
   if (side === 'home') {
-    lines.push(
-      `Hjemmebanen gir normalt et lite løft, særlig i jevnere kamper der marginene er små.`
-    );
-    lines.push(
-      `Publikum, kjente omgivelser og mindre reisebelastning er alle forhold som trekker svakt i hjemmelagets favør.`
-    );
+    if (ctx.homePlayed !== undefined) {
+      lines.push(
+        `Hjemme: ${ctx.homeWins ?? 0}-${ctx.homeDraws ?? 0}-${ctx.homeLosses ?? 0} på ${ctx.homePlayed} kamper`
+      );
+    }
   } else {
-    lines.push(
-      `Bortebane trekker litt ned, men sterke bortelag kan fortsatt være undervurdert hvis markedet blir for forsiktig.`
-    );
-    lines.push(
-      `Hvis laget holder sitt vanlige nivå på reise, kan bortesiden være mer interessant enn førsteinntrykket tilsier.`
-    );
+    if (ctx.awayPlayed !== undefined) {
+      lines.push(
+        `Borte: ${ctx.awayWins ?? 0}-${ctx.awayDraws ?? 0}-${ctx.awayLosses ?? 0} på ${ctx.awayPlayed} kamper`
+      );
+    }
   }
 
   return lines;
@@ -308,18 +309,9 @@ export default function MatchDetailPanel({
   const topRecommendation = recommendations[0] ?? fixture.topRecommendation;
   const why = buildWhyThisPick(fixture, topRecommendation);
   const risks = buildRiskSection(fixture, topRecommendation);
-  const homeAngles = buildTeamAngles(
-    fixture.homeTeam,
-    'home',
-    fixture.daysRestHome,
-    fixture.injuriesHome
-  );
-  const awayAngles = buildTeamAngles(
-    fixture.awayTeam,
-    'away',
-    fixture.daysRestAway,
-    fixture.injuriesAway
-  );
+  const homeAngles = buildTeamAngles(fixture.homeContext, 'home');
+  const awayAngles = buildTeamAngles(fixture.awayContext, 'away');
+  const preview = buildPreviewText(fixture, topRecommendation);
 
   return (
     <section className="detail-card">
@@ -360,9 +352,8 @@ export default function MatchDetailPanel({
       </div>
 
       <div className="info-panel">
-        <h3>Modellens hovedvurdering</h3>
-        <p>{teamLeanText(fixture, topRecommendation)}</p>
-        {topRecommendation?.note ? <p>{topRecommendation.note}</p> : null}
+        <h3>Match preview</h3>
+        <p>{preview}</p>
       </div>
 
       <div className="two-col-grid">
@@ -546,8 +537,7 @@ export default function MatchDetailPanel({
       </div>
 
       <div className="warning-box">
-        <strong>Neste steg:</strong> For å få mer presis preview om ting som konkret spillerform, tabellplassering,
-        dommerprofil og siste fem kamper, må vi koble på flere datakilder i modellen.
+        <strong>Neste steg:</strong> Nå har vi ekte tabell- og formkontekst inne. Neste naturlige steg er å koble på konkrete siste kamper, spillere i form og mer detaljert skadebilde.
       </div>
     </section>
   );
