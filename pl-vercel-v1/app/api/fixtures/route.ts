@@ -1,13 +1,14 @@
 import { NextResponse } from 'next/server';
-import { getRoundFixtures } from '@/lib/model';
+import { getLiveDashboard } from '@/lib/live-data';
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const round = Number(searchParams.get('round') ?? 34);
 
-  return NextResponse.json({
-    round,
-    dataMode: process.env.DATA_MODE ?? 'mock',
-    fixtures: getRoundFixtures(round),
-  });
+  try {
+    const dashboard = await getLiveDashboard(round);
+    return NextResponse.json({ round: dashboard.round, dataMode: dashboard.source, generatedAt: dashboard.generatedAt, fixtures: dashboard.fixtures });
+  } catch (error) {
+    return NextResponse.json({ ok: false, error: error instanceof Error ? error.message : 'Unknown error' }, { status: 500 });
+  }
 }

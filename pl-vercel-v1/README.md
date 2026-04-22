@@ -1,38 +1,36 @@
-# Premier League Betting Model - Vercel V1
+# Premier League Betting Model - Vercel V2
 
-Dette er en Vercel-klar prototype for Premier League bettingmodell.
+Dette er en Vercel-klar Next.js-app for en Premier League bettingmodell.
 
-## Hva den gjør
-- viser kamper i valgt runde
-- beregner fair odds og edge på mock-data
-- gir topp 10 anbefalinger per runde
-- har API-ruter klare for ekte datakilder senere
-- har cron-endepunkt for daglig refresh
+## V2 nå
+- dashboard i Next.js
+- topp 10 spill per runde/uke
+- mock fallback hvis API-nøkler mangler
+- live-modus for fixtures + odds + injuries
+- API-ruter for fixtures, recommendations, cron refresh og live status
 
-## Teknologi
-- Next.js App Router
-- Vercel Functions via API routes
-- Mock-data i V1
-- Klar struktur for The Odds API + API-FOOTBALL i V2
+## Live datakilder
+- The Odds API for EPL odds (`soccer_epl`) og markeder som `h2h`, `totals` og `btts`
+- API-FOOTBALL for Premier League fixtures og injuries
 
-## Kjør lokalt
-```bash
-npm install
-npm run dev
-```
+## Viktige env vars
+- `DATA_MODE=live`
+- `ODDS_API_KEY=...`
+- `API_FOOTBALL_KEY=...`
+- `API_FOOTBALL_LEAGUE_ID=39`
+- `API_FOOTBALL_SEASON=2026`
+- `ODDS_SPORT_KEY=soccer_epl`
+- `ODDS_REGIONS=uk,eu`
+- `CRON_SECRET=...`
 
-## Deploy på Vercel
-1. Last opp prosjektet til GitHub.
-2. Importer repoet i Vercel.
-3. Legg inn environment variables fra `.env.example`.
-4. Deploy.
+## Endepunkter
+- `/api/fixtures`
+- `/api/recommendations`
+- `/api/cron/refresh`
+- `/api/live-status`
 
-## Viktig om cron på Hobby
-På Hobby-planen kan cron bare kjøre én gang per dag, og Vercel kan trigge den når som helst innenfor den spesifiserte timen.
-
-## Forslag til V2
-- bytte `DATA_MODE=live`
-- koble `/api/fixtures` til API-FOOTBALL
-- koble odds-snapshots til The Odds API
-- lagre snapshots i database
-- vise CLV og oddsbevegelse i UI
+## Neste steg
+- lagre odds-snapshots i database
+- closing line / CLV-logg
+- expected lineups
+- team ratings fra live data i stedet for statisk fallback

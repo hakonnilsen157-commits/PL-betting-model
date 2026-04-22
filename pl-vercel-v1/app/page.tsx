@@ -1,20 +1,21 @@
 import { RecommendationList } from '@/components/RecommendationList';
-import { getRoundFixtures, getRoundRecommendations } from '@/lib/model';
+import { getLiveDashboard } from '@/lib/live-data';
 
-const currentRound = 34;
+const fallbackRound = 34;
 
-export default function HomePage() {
-  const recommendations = getRoundRecommendations(currentRound);
-  const fixtures = getRoundFixtures(currentRound);
+export default async function HomePage() {
+  const dashboard = await getLiveDashboard(fallbackRound);
+  const recommendations = dashboard.recommendations;
+  const fixtures = dashboard.fixtures;
 
   return (
     <main className="container">
       <div className="header">
         <div>
-          <p className="badge">Premier League model • Vercel V1</p>
-          <h1 className="h1">Betting dashboard for Gameweek {currentRound}</h1>
+          <p className="badge">Premier League model • Vercel V2</p>
+          <h1 className="h1">Betting dashboard for Gameweek {dashboard.round || fallbackRound}</h1>
           <p className="subtle">
-            V1 bruker mock-data, men arkitekturen er klar for ekte odds, skader, fixtures og cron-basert refresh.
+            V2 kan bruke live fixtures, odds og injuries når DATA_MODE=live og API-nøkler er satt. Uten det faller den tilbake til mock-data.
           </p>
         </div>
       </div>
@@ -30,12 +31,12 @@ export default function HomePage() {
         </section>
         <section className="card third">
           <div className="kpi-label">Data mode</div>
-          <div className="kpi">{process.env.DATA_MODE ?? 'mock'}</div>
+          <div className="kpi">{dashboard.source}</div>
         </section>
 
         <section className="card half">
           <h2 style={{ marginTop: 0 }}>Topp 10 spill denne runden</h2>
-          <p className="subtle">Utvalgt på edge + expected value. Ikke begrenset til H/U/B.</p>
+          <p className="subtle">Utvalgt på edge + expected value. H2H, totals og BTTS er inkludert.</p>
           <RecommendationList recommendations={recommendations} />
         </section>
 
@@ -43,12 +44,7 @@ export default function HomePage() {
           <h2 style={{ marginTop: 0 }}>Kamper i runden</h2>
           <table className="table">
             <thead>
-              <tr>
-                <th>Kamp</th>
-                <th>Kickoff</th>
-                <th>Topp spill</th>
-                <th>EV</th>
-              </tr>
+              <tr><th>Kamp</th><th>Kickoff</th><th>Topp spill</th><th>EV</th></tr>
             </thead>
             <tbody>
               {fixtures.map((fixture) => (
@@ -64,19 +60,9 @@ export default function HomePage() {
         </section>
 
         <section className="card">
-          <h2 style={{ marginTop: 0 }}>Arkitektur</h2>
-          <p className="subtle">
-            Frontend i Next.js. Modell-logikk i server-side kode/API-ruter. Daglig oppdatering via Vercel Cron. I V2 kobles
-            fixtures, odds og injuries til ekte datakilder og lagres i database.
-          </p>
-          <div className="mono" style={{ whiteSpace: 'pre-wrap', lineHeight: 1.7 }}>
-{`Frontend: Next.js App Router
-API: /api/fixtures, /api/recommendations, /api/cron/refresh
-Model layer: lib/model.ts
-Data adapters (V2): odds, injuries, fixtures
-Storage (V2): Postgres/Supabase/Neon
-Scheduler: Vercel Cron (daglig på Hobby)`}
-          </div>
+          <h2 style={{ marginTop: 0 }}>Live-oppsett</h2>
+          <p className="subtle">For live-modus: sett DATA_MODE=live i Vercel og legg inn ODDS_API_KEY og API_FOOTBALL_KEY. Cron-endepunktet kan da brukes til å hente odds, fixtures og injuries på faste intervaller.</p>
+          <div className="mono" style={{ whiteSpace: 'pre-wrap', lineHeight: 1.7 }}>{`ENV:\nDATA_MODE=live\nODDS_API_KEY=...\nAPI_FOOTBALL_KEY=...\nAPI_FOOTBALL_SEASON=${new Date().getUTCFullYear()}\nODDS_REGIONS=uk,eu\nODDS_SPORT_KEY=soccer_epl\nCRON_SECRET=...`}</div>
         </section>
       </div>
     </main>

@@ -9,19 +9,32 @@ function logistic(x: number): number {
   return 1 / (1 + Math.exp(-x));
 }
 
-function getTeam(name: string): TeamProfile {
-  const team = teams.find((t) => t.name === name);
-  if (!team) {
-    throw new Error(`Team not found: ${name}`);
-  }
-  return team;
+function fallbackTeam(name: string): TeamProfile {
+  return {
+    name,
+    power: 75,
+    homeAdvantage: 3,
+    awayAdjustment: -1,
+    form: 0,
+    xgFor: 1.4,
+    xgAgainst: 1.4,
+    pressing: 50,
+    buildUp: 50,
+    transition: 50,
+    setPieces: 50,
+    crossing: 50,
+    aerialDefense: 50,
+  };
 }
 
-function getOdds(fixtureId: string): OddsLine {
-  const line = latestOdds.find((o) => o.fixtureId === fixtureId);
-  if (!line) {
-    throw new Error(`Odds not found: ${fixtureId}`);
-  }
+function getTeam(name: string): TeamProfile {
+  return teams.find((t) => t.name === name) ?? fallbackTeam(name);
+}
+
+function getOdds(fixtureId: string, oddsInput?: OddsLine[]): OddsLine {
+  const source = oddsInput ?? latestOdds;
+  const line = source.find((o) => o.fixtureId === fixtureId);
+  if (!line) throw new Error(`Odds not found: ${fixtureId}`);
   return line;
 }
 
@@ -31,36 +44,22 @@ function baseStrength(home: TeamProfile, away: TeamProfile, fixture: MatchFixtur
   const xgGap = (home.xgFor - home.xgAgainst) - (away.xgFor - away.xgAgainst);
   const restGap = fixture.daysRestHome - fixture.daysRestAway;
   const injuryGap = fixture.injuriesAway - fixture.injuriesHome;
-
   return ratingGap * 0.08 + formGap * 0.12 + xgGap * 0.9 + restGap * 0.08 + injuryGap * 0.12;
 }
 
 function styleEdges(home: TeamProfile, away: TeamProfile): number {
-  const pressVsBuild = (home.pressing - away.buildUp) * 0.08;
-  const transitionEdge = (home.transition - away.transition) * 0.05;
-  const setPieceEdge = (home.setPieces - away.aerialDefense) * 0.06;
-  const crossingEdge = (home.crossing - away.aerialDefense) * 0.04;
-
-  return pressVsBuild + transitionEdge + setPieceEdge + crossingEdge;
+  return (home.pressing - away.buildUp) * 0.08 + (home.transition - away.transition) * 0.05 + (home.setPieces - away.aerialDefense) * 0.06 + (home.crossing - away.aerialDefense) * 0.04;
 }
 
 function marketProbability(odds: number): number {
   return odds > 0 ? 1 / odds : 0;
 }
 
-function makeRecommendation(
-  fixture: MatchFixture,
-  market: MatchMarket,
-  probability: number,
-  bookmakerOdds: number,
-  note: string,
-  confidence: number,
-): Recommendation {
+function makeRecommendation(fixture: MatchFixture, market: MatchMarket, probability: number, bookmakerOdds: number, note: string, confidence: number): Recommendation {
   const impliedProbability = marketProbability(bookmakerOdds);
   const fairOdds = probability > 0 ? 1 / probability : 999;
   const edge = probability - impliedProbability;
   const expectedValue = probability * bookmakerOdds - 1;
-
   return {
     fixtureId: fixture.id,
     match: `${fixture.homeTeam} vs ${fixture.awayTeam}`,
@@ -77,20 +76,17 @@ function makeRecommendation(
   };
 }
 
-export function scoreFixture(fixture: MatchFixture): Recommendation[] {
+export function scoreFixture(fixture: MatchFixture, oddsInput?: OddsLine[]): Recommendation[] {
   const home = getTeam(fixture.homeTeam);
   const away = getTeam(fixture.awayTeam);
-  const line = getOdds(fixture.id);
-
-  const strength = baseStrength(home, away, fixture);
-  const style = styleEdges(home, away);
-  const totalEdge = strength + style;
+  const line = getOdds(fixture.id, oddsInput);
+  const totalEdge = baseStrength(home, away, fixture) + styleEdges(home, away);
 
   const homeProb = clamp(logistic(totalEdge / 3), 0.18, 0.78);
   const awayProb = clamp(logistic((-totalEdge - 0.3) / 3.2), 0.08, 0.52);
   const drawProb = clamp(1 - homeProb - awayProb, 0.14, 0.32);
 
-  const totalGoalSignal = home.xgFor + away.xgFor - 0.45 * (home.xgAgainst + away.xgAgainst) + Math.abs(style) * 0.1;
+  const totalGoalSignal = home.xgFor + away.xgFor - 0.45 * (home.xgAgainst + away.xgAgainst) + Math.abs(totalEdge) * 0.03;
   const overProb = clamp(logistic((totalGoalSignal - 1.75) * 1.1), 0.28, 0.82);
   const underProb = clamp(1 - overProb, 0.18, 0.72);
 
@@ -110,25 +106,12 @@ export function scoreFixture(fixture: MatchFixture): Recommendation[] {
 }
 
 export function getRoundRecommendations(round: number): Recommendation[] {
-  const roundFixtures = fixtures.filter((fixture) => fixture.round === round);
-  return roundFixtures
-    .flatMap(scoreFixture)
-    .filter((rec) => rec.edge > 0.025 && rec.expectedValue > 0.03)
-    .sort((a, b) => b.expectedValue - a.expectedValue || b.edge - a.edge)
-    .slice(0, 10);
+  return fixtures.filter((f) => f.round === round).flatMap((f) => scoreFixture(f)).filter((r) => r.edge > 0.025 && r.expectedValue > 0.03).sort((a, b) => b.expectedValue - a.expectedValue || b.edge - a.edge).slice(0, 10);
 }
 
 export function getRoundFixtures(round: number) {
-  return fixtures
-    .filter((fixture) => fixture.round === round)
-    .map((fixture) => {
-      const line = getOdds(fixture.id);
-      const recs = scoreFixture(fixture);
-      const top = [...recs].sort((a, b) => b.expectedValue - a.expectedValue)[0];
-      return {
-        ...fixture,
-        latestOdds: line,
-        topRecommendation: top,
-      };
-    });
+  return fixtures.filter((f) => f.round === round).map((fixture) => {
+    const recs = scoreFixture(fixture);
+    return { ...fixture, latestOdds: getOdds(fixture.id), topRecommendation: [...recs].sort((a, b) => b.expectedValue - a.expectedValue)[0] };
+  });
 }
