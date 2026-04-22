@@ -82,63 +82,12 @@ function formatDate(date: string) {
   }
 }
 
-function valueTone(value?: number) {
-  if (typeof value !== 'number') return 'text-slate-300';
-  if (value >= 0.08) return 'text-emerald-400';
-  if (value >= 0.04) return 'text-emerald-300';
-  if (value >= 0.015) return 'text-amber-300';
-  return 'text-slate-300';
-}
-
-function cardBorderTone(value?: number) {
-  if (typeof value !== 'number') return 'border-slate-800';
-  if (value >= 0.08) return 'border-emerald-500/40';
-  if (value >= 0.04) return 'border-emerald-400/25';
-  if (value >= 0.015) return 'border-amber-400/25';
-  return 'border-slate-800';
-}
-
-function SummaryCard({
-  label,
-  value,
-  accent = false,
-}: {
-  label: string;
-  value: string | number;
-  accent?: boolean;
-}) {
-  return (
-    <div className="rounded-3xl border border-slate-800 bg-slate-900/70 p-5">
-      <div className="text-sm text-slate-400">{label}</div>
-      <div className={`mt-2 text-3xl font-bold ${accent ? 'text-emerald-400' : 'text-white'}`}>
-        {value}
-      </div>
-    </div>
-  );
-}
-
-function MetricPill({
-  label,
-  value,
-  tone = 'default',
-}: {
-  label: string;
-  value: string;
-  tone?: 'default' | 'green' | 'amber';
-}) {
-  const toneClass =
-    tone === 'green'
-      ? 'text-emerald-300 border-emerald-500/20 bg-emerald-500/10'
-      : tone === 'amber'
-      ? 'text-amber-300 border-amber-500/20 bg-amber-500/10'
-      : 'text-slate-200 border-slate-700 bg-slate-900/80';
-
-  return (
-    <div className={`rounded-2xl border px-3 py-2 ${toneClass}`}>
-      <div className="text-[11px] uppercase tracking-wide text-slate-400">{label}</div>
-      <div className="mt-1 text-sm font-semibold">{value}</div>
-    </div>
-  );
+function cardBorderClass(value?: number) {
+  if (typeof value !== 'number') return '';
+  if (value >= 0.08) return { borderColor: '#b7e4c7' };
+  if (value >= 0.04) return { borderColor: '#d6eadf' };
+  if (value >= 0.015) return { borderColor: '#f6dfb8' };
+  return {};
 }
 
 export default function Page() {
@@ -217,196 +166,212 @@ export default function Page() {
 
   if (loading) {
     return (
-      <main className="min-h-screen bg-slate-950 px-4 py-10 text-white">
-        <div className="mx-auto max-w-7xl">
-          <div className="rounded-3xl border border-slate-800 bg-slate-900/70 p-8">
-            Laster dashboard...
-          </div>
-        </div>
+      <main className="dashboard-shell">
+        <section className="hero-card">
+          <h1 className="hero-title">Laster dashboard...</h1>
+        </section>
       </main>
     );
   }
 
   return (
-    <main className="min-h-screen bg-[radial-gradient(circle_at_top_left,_rgba(16,185,129,0.08),_transparent_30%),linear-gradient(180deg,_#020617_0%,_#020617_100%)] px-4 py-8 text-white">
-      <div className="mx-auto max-w-7xl space-y-6">
-        <section className="rounded-3xl border border-slate-800 bg-slate-900/70 p-6 md:p-8">
-          <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
-            <div>
-              <div className="mb-3 inline-flex rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1 text-xs font-medium text-emerald-300">
-                Premier League Betting Model
-              </div>
-              <h1 className="text-3xl font-bold md:text-4xl">Dashboard</h1>
-              <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-400 md:text-base">
-                En mer eksklusiv oversikt over live odds, verdi-spill og kampanalyse.
-              </p>
-            </div>
-
-            <div className="text-sm text-slate-400">
-              Oppdatert:{' '}
-              {data?.generatedAt
-                ? new Date(data.generatedAt).toLocaleString('no-NO')
-                : '–'}
-            </div>
+    <main className="dashboard-shell">
+      <section className="hero-card">
+        <div className="hero-topline">
+          <div>
+            <div className="eyebrow">Premier League Betting Model</div>
+            <h1 className="hero-title">Dashboard</h1>
+            <p className="hero-subtitle">
+              En mer eksklusiv oversikt over live odds, verdi-spill og kampanalyse.
+            </p>
           </div>
 
-          <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            <SummaryCard label="Runde" value={data?.round ?? '–'} />
-            <SummaryCard label="Data mode" value={data?.source ?? '–'} />
-            <SummaryCard label="Anbefalte spill" value={filteredRecommendations.length} />
-            <SummaryCard label="Beste EV" value={pct(bestEV)} accent />
+          <div className="updated-at">
+            Oppdatert:{' '}
+            {data?.generatedAt
+              ? new Date(data.generatedAt).toLocaleString('no-NO')
+              : '–'}
           </div>
-        </section>
+        </div>
 
-        <section className="rounded-3xl border border-slate-800 bg-slate-900/70 p-6 md:p-8">
-          <h2 className="text-xl font-semibold">Filtre</h2>
-
-          <div className="mt-5 grid gap-6 lg:grid-cols-2">
-            <div>
-              <label className="mb-2 block text-sm font-medium text-slate-300">Marked</label>
-              <select
-                value={marketFilter}
-                onChange={(e) => setMarketFilter(e.target.value)}
-                className="w-full rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3 text-white outline-none transition focus:border-emerald-500"
-              >
-                <option value="all">Alle</option>
-                <option value="home">Hjemmeseier</option>
-                <option value="draw">Uavgjort</option>
-                <option value="away">Borteseier</option>
-                <option value="over2_5">Over 2.5</option>
-                <option value="under2_5">Under 2.5</option>
-                <option value="btts_yes">Begge lag scorer</option>
-                <option value="btts_no">Begge lag scorer ikke</option>
-              </select>
-            </div>
-
-            <div>
-              <label className="mb-2 block text-sm font-medium text-slate-300">
-                Minimum EV: <span className="text-emerald-400">{pct(minEV)}</span>
-              </label>
-              <input
-                type="range"
-                min={0}
-                max={0.25}
-                step={0.005}
-                value={minEV}
-                onChange={(e) => setMinEV(Number(e.target.value))}
-                className="mt-3 w-full accent-emerald-500"
-              />
-            </div>
+        <div className="summary-grid">
+          <div className="summary-card">
+            <div className="summary-label">Runde</div>
+            <div className="summary-value">{data?.round ?? '–'}</div>
           </div>
-        </section>
+          <div className="summary-card">
+            <div className="summary-label">Data mode</div>
+            <div className="summary-value">{data?.source ?? '–'}</div>
+          </div>
+          <div className="summary-card">
+            <div className="summary-label">Anbefalte spill</div>
+            <div className="summary-value">{filteredRecommendations.length}</div>
+          </div>
+          <div className="summary-card">
+            <div className="summary-label">Beste EV</div>
+            <div className="summary-value green">{pct(bestEV)}</div>
+          </div>
+        </div>
+      </section>
 
-        <section className="grid gap-6 xl:grid-cols-[430px,minmax(0,1fr)]">
-          <div className="space-y-6">
-            <div className="rounded-3xl border border-slate-800 bg-slate-900/70 p-6">
-              <div className="mb-4 flex items-center justify-between">
-                <h2 className="text-xl font-semibold">Topp anbefalinger</h2>
-                <div className="rounded-full bg-slate-800 px-3 py-1 text-xs text-slate-300">
-                  {filteredRecommendations.length} spill
-                </div>
-              </div>
+      <section className="filters-card">
+        <h2 className="section-title">Filtre</h2>
+        <p className="section-subtitle">
+          Filtrer anbefalingene på marked og minimum forventet verdi.
+        </p>
 
-              <div className="space-y-4">
-                {filteredRecommendations.length === 0 ? (
-                  <div className="rounded-2xl border border-slate-800 bg-slate-950/70 p-4 text-sm text-slate-400">
-                    Ingen anbefalinger passer filtrene akkurat nå.
-                  </div>
-                ) : (
-                  filteredRecommendations.slice(0, 10).map((rec, idx) => (
-                    <button
-                      key={`${rec.fixtureId}-${rec.market}`}
-                      onClick={() => setSelectedFixtureId(String(rec.fixtureId))}
-                      className={`w-full rounded-2xl border bg-slate-950/70 p-4 text-left transition hover:bg-slate-900 ${cardBorderTone(
-                        rec.expectedValue
-                      )}`}
-                    >
-                      <div className="flex items-start justify-between gap-3">
-                        <div>
-                          <div className="text-xs text-slate-500">#{idx + 1}</div>
-                          <div className="mt-1 font-semibold text-white">{rec.match}</div>
-                          <div className="mt-2 text-sm text-slate-400">{formatMarket(rec.market)}</div>
-                        </div>
-
-                        <div className={`rounded-full px-3 py-1 text-xs font-medium ${valueTone(rec.expectedValue)} bg-slate-900`}>
-                          EV {pct(rec.expectedValue)}
-                        </div>
-                      </div>
-
-                      <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                        <MetricPill label="Odds" value={String(rec.bookmakerOdds)} />
-                        <MetricPill label="Fair odds" value={String(rec.fairOdds)} />
-                        <MetricPill label="Edge" value={pct(rec.edge)} tone="amber" />
-                        <MetricPill
-                          label="Confidence"
-                          value={`${rec.confidence.toFixed(0)}/100`}
-                          tone="green"
-                        />
-                      </div>
-                    </button>
-                  ))
-                )}
-              </div>
-            </div>
-
-            <div className="rounded-3xl border border-slate-800 bg-slate-900/70 p-6">
-              <div className="mb-4 flex items-center justify-between">
-                <h2 className="text-xl font-semibold">Kamper</h2>
-                <div className="rounded-full bg-slate-800 px-3 py-1 text-xs text-slate-300">
-                  {data?.fixtures?.length ?? 0} kamper
-                </div>
-              </div>
-
-              <div className="space-y-4">
-                {(data?.fixtures ?? []).map((fixture) => {
-                  const active = String(selectedFixture?.id) === String(fixture.id);
-
-                  return (
-                    <button
-                      key={fixture.id}
-                      onClick={() => setSelectedFixtureId(String(fixture.id))}
-                      className={`w-full rounded-2xl border p-4 text-left transition ${
-                        active
-                          ? 'border-emerald-500 bg-slate-950/90'
-                          : 'border-slate-800 bg-slate-950/70 hover:border-slate-600 hover:bg-slate-900'
-                      }`}
-                    >
-                      <div className="font-semibold text-white">
-                        {fixture.homeTeam} vs {fixture.awayTeam}
-                      </div>
-
-                      <div className="mt-1 text-sm text-slate-400">{formatDate(fixture.kickoff)}</div>
-
-                      <div className="mt-4 grid gap-3 sm:grid-cols-3">
-                        <MetricPill
-                          label="Toppspill"
-                          value={formatMarket(fixture.topRecommendation?.market)}
-                        />
-                        <MetricPill
-                          label="EV"
-                          value={pct(fixture.topRecommendation?.expectedValue)}
-                          tone="green"
-                        />
-                        <MetricPill
-                          label="Bookmaker"
-                          value={fixture.latestOdds?.bookmaker ?? '–'}
-                        />
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
+        <div className="filters-grid">
+          <div>
+            <label className="field-label">Marked</label>
+            <select
+              value={marketFilter}
+              onChange={(e) => setMarketFilter(e.target.value)}
+              className="select-input"
+            >
+              <option value="all">Alle</option>
+              <option value="home">Hjemmeseier</option>
+              <option value="draw">Uavgjort</option>
+              <option value="away">Borteseier</option>
+              <option value="over2_5">Over 2.5</option>
+              <option value="under2_5">Under 2.5</option>
+              <option value="btts_yes">Begge lag scorer</option>
+              <option value="btts_no">Begge lag scorer ikke</option>
+            </select>
           </div>
 
-          <div className="xl:sticky xl:top-6 xl:self-start">
-            <MatchDetailPanel
-              fixture={selectedFixture}
-              recommendations={selectedRecommendations}
+          <div>
+            <label className="field-label">Minimum EV: {pct(minEV)}</label>
+            <input
+              type="range"
+              min={0}
+              max={0.25}
+              step={0.005}
+              value={minEV}
+              onChange={(e) => setMinEV(Number(e.target.value))}
+              className="range-input"
             />
           </div>
-        </section>
-      </div>
+        </div>
+      </section>
+
+      <section className="main-grid">
+        <div className="left-column">
+          <section className="list-card">
+            <div className="list-card-header">
+              <div>
+                <h2 className="section-title" style={{ marginBottom: 0 }}>Topp anbefalinger</h2>
+                <p className="section-subtitle">De beste spillene modellen finner akkurat nå.</p>
+              </div>
+              <div className="badge-soft">{filteredRecommendations.length} spill</div>
+            </div>
+
+            <div className="item-list">
+              {filteredRecommendations.length === 0 ? (
+                <div className="empty-box">Ingen anbefalinger passer filtrene akkurat nå.</div>
+              ) : (
+                filteredRecommendations.slice(0, 10).map((rec, idx) => (
+                  <button
+                    key={`${rec.fixtureId}-${rec.market}`}
+                    onClick={() => setSelectedFixtureId(String(rec.fixtureId))}
+                    className="recommendation-card"
+                    style={cardBorderClass(rec.expectedValue)}
+                  >
+                    <div className="rec-topline">
+                      <div>
+                        <div className="rec-rank">#{idx + 1}</div>
+                        <h3 className="match-name">{rec.match}</h3>
+                        <div className="market-name">{formatMarket(rec.market)}</div>
+                      </div>
+                      <div className="ev-pill">EV {pct(rec.expectedValue)}</div>
+                    </div>
+
+                    <div className="metrics-grid">
+                      <div className="metric-pill">
+                        <div className="metric-pill-label">Odds</div>
+                        <div className="metric-pill-value">{rec.bookmakerOdds}</div>
+                      </div>
+                      <div className="metric-pill">
+                        <div className="metric-pill-label">Fair odds</div>
+                        <div className="metric-pill-value">{rec.fairOdds}</div>
+                      </div>
+                      <div className="metric-pill">
+                        <div className="metric-pill-label">Edge</div>
+                        <div className="metric-pill-value">{pct(rec.edge)}</div>
+                      </div>
+                      <div className="metric-pill">
+                        <div className="metric-pill-label">Confidence</div>
+                        <div className="metric-pill-value">{rec.confidence.toFixed(0)}/100</div>
+                      </div>
+                    </div>
+                  </button>
+                ))
+              )}
+            </div>
+          </section>
+
+          <section className="list-card">
+            <div className="list-card-header">
+              <div>
+                <h2 className="section-title" style={{ marginBottom: 0 }}>Kamper</h2>
+                <p className="section-subtitle">Klikk på en kamp for å åpne preview og analyse.</p>
+              </div>
+              <div className="badge-soft">{data?.fixtures?.length ?? 0} kamper</div>
+            </div>
+
+            <div className="item-list">
+              {(data?.fixtures ?? []).map((fixture) => {
+                const active = String(selectedFixture?.id) === String(fixture.id);
+
+                return (
+                  <button
+                    key={fixture.id}
+                    onClick={() => setSelectedFixtureId(String(fixture.id))}
+                    className={`fixture-card ${active ? 'active' : ''}`}
+                  >
+                    <div className="fixture-topline">
+                      <div>
+                        <h3 className="match-name">
+                          {fixture.homeTeam} vs {fixture.awayTeam}
+                        </h3>
+                        <div className="fixture-kickoff">{formatDate(fixture.kickoff)}</div>
+                      </div>
+                      <div className="badge-soft">
+                        {formatMarket(fixture.topRecommendation?.market)}
+                      </div>
+                    </div>
+
+                    <div className="metrics-grid three">
+                      <div className="metric-pill">
+                        <div className="metric-pill-label">EV</div>
+                        <div className="metric-pill-value">
+                          {pct(fixture.topRecommendation?.expectedValue)}
+                        </div>
+                      </div>
+                      <div className="metric-pill">
+                        <div className="metric-pill-label">Edge</div>
+                        <div className="metric-pill-value">
+                          {pct(fixture.topRecommendation?.edge)}
+                        </div>
+                      </div>
+                      <div className="metric-pill">
+                        <div className="metric-pill-label">Bookmaker</div>
+                        <div className="metric-pill-value">
+                          {fixture.latestOdds?.bookmaker ?? '–'}
+                        </div>
+                      </div>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </section>
+        </div>
+
+        <MatchDetailPanel
+          fixture={selectedFixture}
+          recommendations={selectedRecommendations}
+        />
+      </section>
     </main>
   );
 }
