@@ -96,11 +96,8 @@ function normalizeTeamName(name: string): string {
     .replace('Nottingham Forest', 'Nottm Forest')
     .replace('Wolverhampton Wanderers', 'Wolves')
     .replace('Manchester Utd', 'Manchester United')
-    .replace('Manchester City', 'Manchester City')
-    .replace('Tottenham Hotspur', 'Tottenham')
     .replace('Newcastle Utd', 'Newcastle United')
-    .replace('Leeds', 'Leeds United')
-    .replace('Brighton', 'Brighton and Hove Albion')
+    .replace('Tottenham Hotspur', 'Tottenham')
     .trim();
 }
 
