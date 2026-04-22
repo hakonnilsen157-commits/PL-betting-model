@@ -4,7 +4,6 @@ import { MatchFixture, OddsLine } from '@/lib/types';
 const ODDS_BASE = 'https://api.the-odds-api.com/v4';
 const FOOTBALL_BASE = 'https://v3.football.api-sports.io';
 const EPL_LEAGUE_ID = Number(process.env.API_FOOTBALL_LEAGUE_ID ?? '39');
-const DEFAULT_SEASON = Number(process.env.API_FOOTBALL_SEASON ?? new Date().getUTCFullYear());
 const ODDS_BOOKMAKERS = process.env.ODDS_BOOKMAKERS ?? '';
 const ODDS_REGIONS = process.env.ODDS_REGIONS ?? 'uk,eu';
 const SPORT_KEY = process.env.ODDS_SPORT_KEY ?? 'soccer_epl';
@@ -96,6 +95,11 @@ function isLiveMode() {
   return (process.env.DATA_MODE ?? 'mock') === 'live';
 }
 
+function buildSeasonsToTry() {
+  const envSeason = Number(process.env.API_FOOTBALL_SEASON ?? new Date().getUTCFullYear());
+  return Array.from(new Set([envSeason, envSeason - 1, 2025, 2026]));
+}
+
 function normalizeTeamName(name: string): string {
   return name
     .replace(/\s+/g, ' ')
@@ -142,9 +146,20 @@ function parseTotals(bookmaker?: OddsApiBookmaker) {
   return { over2_5: over?.price ?? 1.95, under2_5: under?.price ?? 1.95 };
 }
 
-function buildSeasonsToTry() {
-  const envSeason = Number(process.env.API_FOOTBALL_SEASON ?? new Date().getUTCFullYear());
-  return Array.from(new Set([envSeason, envSeason - 1, 2025, 2026]));
+export async function fetchLiveOdds(): Promise<OddsApiEvent[]> {
+  if (!process.env.ODDS_API_KEY) throw new Error('Missing ODDS_API_KEY');
+
+  const qs = new URLSearchParams({
+    apiKey: process.env.ODDS_API_KEY,
+    regions: ODDS_REGIONS,
+    markets: 'h2h,totals',
+    oddsFormat: 'decimal',
+    dateFormat: 'iso',
+  });
+
+  if (ODDS_BOOKMAKERS) qs.set('bookmakers', ODDS_BOOKMAKERS);
+
+  return fetchJson<OddsApiEvent[]>(`${ODDS_BASE}/sports/${SPORT_KEY}/odds?${qs.toString()}`);
 }
 
 export async function fetchLiveFixtures(): Promise<FootballFixture[]> {
@@ -171,57 +186,13 @@ export async function fetchLiveFixtures(): Promise<FootballFixture[]> {
         .filter((f) => ['NS', 'TBD', 'PST'].includes(f.fixture.status?.short ?? 'NS'))
         .slice(0, MAX_FIXTURES);
 
-      if (fixtures.length > 0) {
-        console.log('API-FOOTBALL fixtures season hit:', season, fixtures.length);
-        return fixtures;
-      }
-
-      console.log('API-FOOTBALL fixtures empty for season:', season);
-    } catch (error) {
-      console.log('API-FOOTBALL fixtures failed for season:', season, error);
+      if (fixtures.length > 0) return fixtures;
+    } catch {
+      // ignore and continue
     }
   }
 
   return [];
-}
-
-export async function fetchLiveInjuriesByFixtureIds(fixtureIds: number[]) {
-  if (!process.env.API_FOOTBALL_KEY || fixtureIds.length === 0) return [] as FootballInjury[];
-
-  const responses = await Promise.all(
-    fixtureIds.map(async (fixtureId) => {
-      try {
-        const qs = new URLSearchParams({ fixture: String(fixtureId) });
-        const data = await fetchJson<{ response: FootballInjury[] }>(
-          `${FOOTBALL_BASE}/injuries?${qs.toString()}`,
-          {
-            headers: { 'x-apisports-key': process.env.API_FOOTBALL_KEY! },
-          }
-        );
-        return data.response;
-      } catch {
-        return [] as FootballInjury[];
-      }
-    })
-  );
-
-  return responses.flat();
-}
-
-export async function fetchLiveOdds(): Promise<OddsApiEvent[]> {
-  if (!process.env.ODDS_API_KEY) throw new Error('Missing ODDS_API_KEY');
-
-  const qs = new URLSearchParams({
-    apiKey: process.env.ODDS_API_KEY,
-    regions: ODDS_REGIONS,
-    markets: 'h2h,totals',
-    oddsFormat: 'decimal',
-    dateFormat: 'iso',
-  });
-
-  if (ODDS_BOOKMAKERS) qs.set('bookmakers', ODDS_BOOKMAKERS);
-
-  return fetchJson<OddsApiEvent[]>(`${ODDS_BASE}/sports/${SPORT_KEY}/odds?${qs.toString()}`);
 }
 
 async function fetchLeagueStandingsMap(): Promise<Map<string, TeamContext>> {
@@ -247,10 +218,7 @@ async function fetchLeagueStandingsMap(): Promise<Map<string, TeamContext>> {
       });
 
       const rows = data.response?.[0]?.league?.standings?.[0] ?? [];
-      if (!rows.length) {
-        console.log('API-FOOTBALL standings empty for season:', season);
-        continue;
-      }
+      if (!rows.length) continue;
 
       const map = new Map<string, TeamContext>();
 
@@ -286,10 +254,9 @@ async function fetchLeagueStandingsMap(): Promise<Map<string, TeamContext>> {
         });
       }
 
-      console.log('API-FOOTBALL standings season hit:', season, map.size);
       return map;
-    } catch (error) {
-      console.log('API-FOOTBALL standings failed for season:', season, error);
+    } catch {
+      // ignore and continue
     }
   }
 
@@ -319,42 +286,63 @@ function getFixtureResultForTeam(teamId: number, fixture: FootballFixture): 'W' 
   return null;
 }
 
-async function fetchRecentFormMap(teamIds: number[]): Promise<Map<number, string>> {
+async function fetchRecentFormMapForTeamIds(teamIds: number[]): Promise<Map<number, string>> {
   if (!process.env.API_FOOTBALL_KEY || teamIds.length === 0) return new Map();
 
   const uniqueIds = Array.from(new Set(teamIds.filter(Boolean)));
   const formMap = new Map<number, string>();
 
-  await Promise.all(
-    uniqueIds.map(async (teamId) => {
-      try {
-        const qs = new URLSearchParams({
-          team: String(teamId),
-          last: '5',
-        });
+  for (const teamId of uniqueIds) {
+    try {
+      const qs = new URLSearchParams({
+        team: String(teamId),
+        last: '5',
+      });
 
-        const data = await fetchJson<{ response: FootballFixture[] }>(
-          `${FOOTBALL_BASE}/fixtures?${qs.toString()}`,
+      const data = await fetchJson<{ response: FootballFixture[] }>(
+        `${FOOTBALL_BASE}/fixtures?${qs.toString()}`,
+        {
+          headers: { 'x-apisports-key': process.env.API_FOOTBALL_KEY! },
+        }
+      );
+
+      const form = (data.response ?? [])
+        .map((fixture) => getFixtureResultForTeam(teamId, fixture))
+        .filter((x): x is 'W' | 'D' | 'L' => x !== null)
+        .join('');
+
+      if (form) {
+        formMap.set(teamId, form);
+      }
+    } catch {
+      // ignore
+    }
+  }
+
+  return formMap;
+}
+
+export async function fetchLiveInjuriesByFixtureIds(fixtureIds: number[]) {
+  if (!process.env.API_FOOTBALL_KEY || fixtureIds.length === 0) return [] as FootballInjury[];
+
+  const responses = await Promise.all(
+    fixtureIds.map(async (fixtureId) => {
+      try {
+        const qs = new URLSearchParams({ fixture: String(fixtureId) });
+        const data = await fetchJson<{ response: FootballInjury[] }>(
+          `${FOOTBALL_BASE}/injuries?${qs.toString()}`,
           {
             headers: { 'x-apisports-key': process.env.API_FOOTBALL_KEY! },
           }
         );
-
-        const form = (data.response ?? [])
-          .map((fixture) => getFixtureResultForTeam(teamId, fixture))
-          .filter((x): x is 'W' | 'D' | 'L' => x !== null)
-          .join('');
-
-        if (form) {
-          formMap.set(teamId, form);
-        }
-      } catch (error) {
-        console.log('API-FOOTBALL recent form failed for team:', teamId, error);
+        return data.response;
+      } catch {
+        return [] as FootballInjury[];
       }
     })
   );
 
-  return formMap;
+  return responses.flat();
 }
 
 function countTeamInjuries(items: FootballInjury[], teamName: string) {
@@ -370,28 +358,11 @@ export async function getLiveDashboard(round?: number) {
       recommendations: getRoundRecommendations(selectedRound),
       source: 'mock',
       generatedAt: new Date().toISOString(),
-      debug: {
-        mode: 'mock',
-      },
+      debug: { mode: 'mock' },
     };
   }
 
   const standingsMap = await fetchLeagueStandingsMap();
-  const recentFormMap = await fetchRecentFormMap(
-    Array.from(standingsMap.values())
-      .map((ctx) => ctx.teamId)
-      .filter((id): id is number => typeof id === 'number')
-  );
-
-  for (const [teamName, ctx] of standingsMap.entries()) {
-    if (ctx.teamId && recentFormMap.has(ctx.teamId)) {
-      standingsMap.set(teamName, {
-        ...ctx,
-        form: recentFormMap.get(ctx.teamId),
-      });
-    }
-  }
-
   const liveFixtures = await fetchLiveFixtures().catch(() => [] as FootballFixture[]);
   const liveInjuries = await fetchLiveInjuriesByFixtureIds(
     liveFixtures.map((f) => f.fixture.id)
@@ -401,6 +372,29 @@ export async function getLiveDashboard(round?: number) {
   const oddsMap = new Map(
     liveOdds.map((e) => [`${normalizeTeamName(e.home_team)}__${normalizeTeamName(e.away_team)}`, e])
   );
+
+  const relevantTeamIds = new Set<number>();
+  for (const event of liveOdds) {
+    const homeName = normalizeTeamName(event.home_team);
+    const awayName = normalizeTeamName(event.away_team);
+
+    const homeCtx = standingsMap.get(homeName);
+    const awayCtx = standingsMap.get(awayName);
+
+    if (homeCtx?.teamId) relevantTeamIds.add(homeCtx.teamId);
+    if (awayCtx?.teamId) relevantTeamIds.add(awayCtx.teamId);
+  }
+
+  const recentFormMap = await fetchRecentFormMapForTeamIds(Array.from(relevantTeamIds));
+
+  for (const [teamName, ctx] of standingsMap.entries()) {
+    if (ctx.teamId && recentFormMap.has(ctx.teamId)) {
+      standingsMap.set(teamName, {
+        ...ctx,
+        form: recentFormMap.get(ctx.teamId),
+      });
+    }
+  }
 
   const injuryMap = new Map<number, FootballInjury[]>();
   for (const injury of liveInjuries) {
