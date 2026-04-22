@@ -72,22 +72,66 @@ function formatMarket(market?: string) {
   return map[market] ?? market;
 }
 
-function InfoChip({
+function InfoStat({
   label,
   value,
+  tone = 'white',
 }: {
   label: string;
   value: string;
+  tone?: 'white' | 'emerald' | 'amber' | 'sky';
 }) {
+  const toneClass =
+    tone === 'emerald'
+      ? 'text-emerald-400'
+      : tone === 'amber'
+      ? 'text-amber-300'
+      : tone === 'sky'
+      ? 'text-sky-300'
+      : 'text-white';
+
   return (
     <div className="rounded-2xl border border-slate-800 bg-slate-900/80 p-4">
       <div className="text-xs uppercase tracking-wide text-slate-500">{label}</div>
-      <div className="mt-2 text-lg font-semibold text-white">{value}</div>
+      <div className={`mt-2 text-lg font-semibold ${toneClass}`}>{value}</div>
     </div>
   );
 }
 
-function StatExplanation({
+function Meter({
+  label,
+  value,
+  max = 0.2,
+  color = 'emerald',
+}: {
+  label: string;
+  value?: number;
+  max?: number;
+  color?: 'emerald' | 'amber' | 'sky';
+}) {
+  const safeValue = typeof value === 'number' ? Math.max(0, Math.min(value, max)) : 0;
+  const width = `${(safeValue / max) * 100}%`;
+  const colorClass =
+    color === 'emerald'
+      ? 'bg-emerald-400'
+      : color === 'amber'
+      ? 'bg-amber-400'
+      : 'bg-sky-400';
+
+  return (
+    <div>
+      <div className="mb-2 flex items-center justify-between text-xs text-slate-400">
+        <span>{label}</span>
+        <span>{pct(value)}</span>
+      </div>
+      <div className="h-2 rounded-full bg-slate-800">
+        <div className={`h-2 rounded-full ${colorClass}`} style={{ width }} />
+      </div>
+    </div>
+  );
+}
+
+function ExplanationCard({
   title,
   text,
 }: {
@@ -128,27 +172,27 @@ export default function MatchDetailPanel({
     }
 
     if (topRecommendation.market === 'home') {
-      return `${fixture.homeTeam} vurderes som den sterkeste siden i denne kampen basert på modellens kombinasjon av lagstyrke, hjemmefordel og markedsforankring.`;
+      return `${fixture.homeTeam} vurderes som den sterkeste siden i denne kampen basert på lagstyrke, hjemmefordel og markedsforankring.`;
     }
 
     if (topRecommendation.market === 'away') {
-      return `${fixture.awayTeam} vurderes som den sterkeste siden i denne kampen basert på modellens kombinasjon av lagstyrke, bortelagets kvalitet og markedsforankring.`;
+      return `${fixture.awayTeam} vurderes som den sterkeste siden i denne kampen basert på modellens vurdering av bortelagets kvalitet og prising i markedet.`;
     }
 
     if (topRecommendation.market === 'draw') {
-      return 'Modellen vurderer dette som en jevn kamp der sannsynligheten for uavgjort er høyere enn markedet priser inn.';
+      return 'Modellen vurderer dette som en jevn kamp der sannsynligheten for uavgjort kan være høyere enn markedet priser inn.';
     }
 
     if (topRecommendation.market === 'over2_5') {
-      return 'Modellen ser tegn til en kamp med gode sjanser og høyere målsannsynlighet enn markedet tilsier.';
+      return 'Modellen ser signaler om en åpnere kamp med høyere målsannsynlighet enn markedet tilsier.';
     }
 
     if (topRecommendation.market === 'under2_5') {
-      return 'Modellen ser tegn til en mer låst kamp med lavere målsannsynlighet enn markedet tilsier.';
+      return 'Modellen forventer en mer kontrollert kamp med lavere målsannsynlighet enn markedet tilsier.';
     }
 
     if (topRecommendation.market === 'btts_yes') {
-      return 'Modellen forventer at begge lag har gode muligheter til å score i denne kampen.';
+      return 'Modellen forventer at begge lag har realistiske muligheter til å score.';
     }
 
     if (topRecommendation.market === 'btts_no') {
@@ -159,7 +203,7 @@ export default function MatchDetailPanel({
   })();
 
   return (
-    <div className="rounded-3xl border border-slate-800 bg-slate-900/70 p-6 md:p-8">
+    <div className="rounded-3xl border border-slate-800 bg-slate-900/70 p-6 shadow-[0_0_0_1px_rgba(255,255,255,0.02)] md:p-8">
       <div className="flex flex-col gap-4 border-b border-slate-800 pb-6">
         <div className="inline-flex w-fit rounded-full border border-slate-700 bg-slate-950/80 px-3 py-1 text-xs text-slate-300">
           Kampdetalj
@@ -178,30 +222,38 @@ export default function MatchDetailPanel({
       </div>
 
       <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <InfoChip
-          label="Toppspill"
-          value={formatMarket(topRecommendation?.market)}
-        />
-        <InfoChip
-          label="EV"
-          value={pct(topRecommendation?.expectedValue)}
-        />
-        <InfoChip
-          label="Edge"
-          value={pct(topRecommendation?.edge)}
-        />
-        <InfoChip
+        <InfoStat label="Toppspill" value={formatMarket(topRecommendation?.market)} />
+        <InfoStat label="EV" value={pct(topRecommendation?.expectedValue)} tone="emerald" />
+        <InfoStat label="Edge" value={pct(topRecommendation?.edge)} tone="amber" />
+        <InfoStat
           label="Confidence"
           value={topRecommendation ? `${topRecommendation.confidence.toFixed(0)}/100` : '–'}
+          tone="sky"
         />
       </div>
 
-      <div className="mt-6 rounded-2xl border border-slate-800 bg-slate-950/80 p-5">
-        <h3 className="text-lg font-semibold text-white">Kort analyse</h3>
-        <p className="mt-3 text-sm leading-7 text-slate-300">{analysisText}</p>
-        {topRecommendation?.note ? (
-          <p className="mt-3 text-sm leading-6 text-slate-400">{topRecommendation.note}</p>
-        ) : null}
+      <div className="mt-6 grid gap-4 md:grid-cols-3">
+        <div className="rounded-2xl border border-slate-800 bg-slate-950/80 p-4 md:col-span-2">
+          <h3 className="text-lg font-semibold text-white">Kort analyse</h3>
+          <p className="mt-3 text-sm leading-7 text-slate-300">{analysisText}</p>
+          {topRecommendation?.note ? (
+            <p className="mt-3 text-sm leading-6 text-slate-400">{topRecommendation.note}</p>
+          ) : null}
+        </div>
+
+        <div className="rounded-2xl border border-slate-800 bg-slate-950/80 p-4">
+          <h3 className="text-lg font-semibold text-white">Signalstyrke</h3>
+          <div className="mt-4 space-y-4">
+            <Meter label="EV" value={topRecommendation?.expectedValue} max={0.2} color="emerald" />
+            <Meter label="Edge" value={topRecommendation?.edge} max={0.15} color="amber" />
+            <Meter
+              label="Confidence"
+              value={topRecommendation ? topRecommendation.confidence / 100 : 0}
+              max={1}
+              color="sky"
+            />
+          </div>
+        </div>
       </div>
 
       <div className="mt-6 grid gap-4 md:grid-cols-2">
@@ -295,21 +347,21 @@ export default function MatchDetailPanel({
       <div className="mt-6">
         <h3 className="mb-4 text-lg font-semibold text-white">Hva betyr tallene?</h3>
         <div className="grid gap-4 md:grid-cols-2">
-          <StatExplanation
+          <ExplanationCard
             title="EV"
             text="Expected Value. Positiv EV betyr at modellen mener oddsen er bedre enn den burde være."
           />
-          <StatExplanation
+          <ExplanationCard
             title="Fair odds"
             text="Modellens beregnede 'rette' odds basert på sannsynligheten modellen kommer frem til."
           />
-          <StatExplanation
+          <ExplanationCard
             title="Edge"
             text="Forskjellen mellom modellens vurdering og bookmakerens implisitte sannsynlighet."
           />
-          <StatExplanation
+          <ExplanationCard
             title="Confidence"
-            text="En samlet tillitsindikator basert på signalstyrke, datagrunnlag og hvor tydelig verdien er."
+            text="En samlet tillitsindikator basert på signalstyrke, datakvalitet og hvor tydelig verdien er."
           />
         </div>
       </div>
