@@ -72,116 +72,162 @@ function formatMarket(market?: string) {
   return map[market] ?? market;
 }
 
-function buildReasons(fixture: FixtureCard, rec?: Recommendation) {
-  const reasons: string[] = [];
-  if (!rec) return reasons;
+function safeNum(n?: number) {
+  return typeof n === 'number' && !Number.isNaN(n) ? n : 0;
+}
+
+function teamLeanText(
+  fixture: FixtureCard,
+  rec?: Recommendation
+) {
+  if (!rec) {
+    return `Modellen har foreløpig ikke funnet et tydelig verdi-spill i oppgjøret mellom ${fixture.homeTeam} og ${fixture.awayTeam}.`;
+  }
+
+  if (rec.market === 'home') {
+    return `${fixture.homeTeam} vurderes som den mest interessante siden i dette oppgjøret. Modellen mener at hjemmelaget prises litt for høyt av markedet, samtidig som hjemmefordelen fortsatt gir et viktig løft i et jevnt kampbilde.`;
+  }
+
+  if (rec.market === 'away') {
+    return `${fixture.awayTeam} vurderes som den mest interessante siden i dette oppgjøret. Modellen mener at bortelaget har bedre muligheter enn oddsen fullt ut gjenspeiler, og at markedet kan være litt for konservativt på bortesiden.`;
+  }
+
+  if (rec.market === 'draw') {
+    return `Modellen leser dette som en forholdsvis jevn kamp der sannsynligheten for uavgjort kan være litt høyere enn markedet tilsier.`;
+  }
+
+  if (rec.market === 'over2_5') {
+    return `Modellen forventer et mer åpent kampbilde enn markedet fullt ut priser inn, og det gjør over-spillet interessant.`;
+  }
+
+  if (rec.market === 'under2_5') {
+    return `Modellen forventer en strammere og mer kontrollert kamp enn oddsbildet tilsier, noe som gjør under-spillet interessant.`;
+  }
+
+  if (rec.market === 'btts_yes') {
+    return `Begge lag vurderes å ha nok offensivt potensial til at begge kan komme på scoringslisten.`;
+  }
+
+  if (rec.market === 'btts_no') {
+    return `Minst ett av lagene kan få problemer med å score i dette oppgjøret, ifølge modellens sannsynlighetsbilde.`;
+  }
+
+  return `Modellen har identifisert ${formatMarket(rec.market)} som det mest interessante markedet i denne kampen.`;
+}
+
+function buildWhyThisPick(fixture: FixtureCard, rec?: Recommendation) {
+  const lines: string[] = [];
+  if (!rec) return lines;
+
+  const homeRest = safeNum(fixture.daysRestHome);
+  const awayRest = safeNum(fixture.daysRestAway);
+  const homeInj = safeNum(fixture.injuriesHome);
+  const awayInj = safeNum(fixture.injuriesAway);
 
   if (rec.bookmakerOdds > rec.fairOdds) {
-    reasons.push(
-      `Markedet tilbyr ${rec.bookmakerOdds} i odds, mens modellen estimerer fair odds til ${rec.fairOdds}. Det betyr at utfallet prises litt høyere enn modellen mener er riktig.`
+    lines.push(
+      `Markedet tilbyr ${rec.bookmakerOdds} i odds, mens modellen estimerer fair odds til ${rec.fairOdds}. Det er selve kjernen i hvorfor dette blir vurdert som et verdi-spill.`
     );
   }
 
-  if (rec.edge >= 0.03) {
-    reasons.push(
-      `Edge på ${pct(rec.edge)} er et tydelig signal om at modellens sannsynlighet ligger over markedets implisitte vurdering.`
+  if (rec.edge >= 0.04) {
+    lines.push(
+      `Edge på ${pct(rec.edge)} er relativt sterk. Det betyr at modellens sannsynlighet ligger tydelig over bookmakerens implisitte sannsynlighet.`
     );
   } else if (rec.edge > 0) {
-    reasons.push(
-      `Det finnes fortsatt en positiv edge på ${pct(rec.edge)}, men dette er et mer moderat verdi-signal enn et aggressivt spill.`
-    );
-  }
-
-  const restDiff = (fixture.daysRestHome ?? 0) - (fixture.daysRestAway ?? 0);
-  if (rec.market === 'home' && restDiff > 0) {
-    reasons.push(
-      `${fixture.homeTeam} ser ut til å komme inn med litt bedre restitusjonsgrunnlag enn bortelaget, noe som kan styrke hjemmecaset.`
-    );
-  }
-  if (rec.market === 'away' && restDiff < 0) {
-    reasons.push(
-      `${fixture.awayTeam} taper ikke restitusjonsbildet tydelig mot hjemmelaget, og bortesiden fremstår derfor mer spillbar enn oddsen antyder.`
-    );
-  }
-
-  const injuryDiff = (fixture.injuriesAway ?? 0) - (fixture.injuriesHome ?? 0);
-  if (rec.market === 'home' && injuryDiff > 0) {
-    reasons.push(
-      `Skadebildet ser marginalt gunstigere ut for ${fixture.homeTeam}, noe som støtter hjemmelagets side av modellen.`
-    );
-  }
-  if (rec.market === 'away' && injuryDiff < 0) {
-    reasons.push(
-      `${fixture.awayTeam} ser ikke mer svekket ut enn hjemmelaget, noe som holder borte-caset intakt.`
+    lines.push(
+      `Edge på ${pct(rec.edge)} er positiv, men moderat. Dette er mer et kontrollert verdi-signal enn et ekstremt spill.`
     );
   }
 
   if (rec.market === 'home') {
-    reasons.push(
-      `${fixture.homeTeam} får i tillegg støtte av hjemmebane, kampmiljø og publikum, men modellen er fortsatt forankret mot markedsoddsen.`
+    lines.push(
+      `${fixture.homeTeam} får støtte av hjemmebane, publikum og kampmiljø. I kamper der prisbildet allerede er ganske jevnt, kan det være nok til å vippe caset i hjemmelagets favør.`
     );
+
+    if (homeRest > awayRest) {
+      lines.push(
+        `${fixture.homeTeam} ser også ut til å komme inn med litt bedre hvile enn motstanderen, noe som kan bidra positivt i kampbildet.`
+      );
+    }
+
+    if (awayInj > homeInj) {
+      lines.push(
+        `${fixture.awayTeam} ser i tillegg litt mer svekket ut på skadesiden enn hjemmelaget, noe som styrker caset ytterligere.`
+      );
+    }
   }
 
   if (rec.market === 'away') {
-    reasons.push(
-      `${fixture.awayTeam} vurderes som sterk nok til å kompensere for bortebanen, og det er nettopp derfor modellen fortsatt finner verdi her.`
+    lines.push(
+      `${fixture.awayTeam} vurderes som mer konkurransedyktige enn markedet tilsier, og modellen mener at bortebanefaktoren kan være litt overpriset i oddsen.`
     );
+
+    if (awayRest >= homeRest) {
+      lines.push(
+        `${fixture.awayTeam} taper heller ikke restitusjonsbildet tydelig mot hjemmelaget, noe som holder bortecaset levende.`
+      );
+    }
+
+    if (homeInj > awayInj) {
+      lines.push(
+        `${fixture.homeTeam} ser ikke friskere ut enn bortelaget, og det svekker hjemmecaset sammenlignet med markedsbildet.`
+      );
+    }
   }
 
   if (rec.market === 'draw') {
-    reasons.push(
-      `Kampen fremstår jevn i modellens sannsynlighetsbilde, og uavgjort kan derfor være svakt underpriset.`
+    lines.push(
+      `Kampen fremstår som relativt balansert i modellens sannsynlighetsbilde, og uavgjort blir derfor interessant når oddsen er høy nok.`
     );
   }
 
   if (rec.market === 'over2_5') {
-    reasons.push(
-      `Det samlede kampbildet peker mot flere sjanser enn markedet fullt ut priser inn, noe som løfter over-markedet.`
+    lines.push(
+      `Totalspillet peker mot en kamp med mer åpenhet og flere farlige angrep enn markedet fullt ut priser inn.`
     );
   }
 
   if (rec.market === 'under2_5') {
-    reasons.push(
-      `Modellen forventer en strammere kamp enn oddsbildet antyder, og under-linjen blir derfor mer interessant.`
+    lines.push(
+      `Modellen forventer en mer kontrollert rytme og færre store sjanser enn det oddsmarkedet antyder.`
     );
   }
 
   if (rec.market === 'btts_yes') {
-    reasons.push(
-      `Begge lag vurderes å ha nok offensiv kapasitet til å true i samme kamp, noe som styrker BTTS ja.`
+    lines.push(
+      `Begge lag vurderes å ha nok offensiv kapasitet til å skape scoringsmuligheter i samme kamp.`
     );
   }
 
   if (rec.market === 'btts_no') {
-    reasons.push(
-      `Minst ett av lagene kan få problemer med å score i dette kampbildet, ifølge modellens vurdering.`
+    lines.push(
+      `Modellen ser en reell sjanse for at minst ett lag ikke får kampen dit de ønsker offensivt.`
     );
   }
 
-  if (reasons.length < 4) {
-    reasons.push(
-      `Confidence på ${rec.confidence.toFixed(
-        0
-      )}/100 tilsier et brukbart signal, men ikke nødvendigvis et ekstremt “high conviction”-scenario.`
-    );
-  }
+  lines.push(
+    `Confidence på ${rec.confidence.toFixed(
+      0
+    )}/100 sier at dette er et spill med brukbar støtte i modellen, men fortsatt ikke et blindt “må-spilles”-spill.`
+  );
 
-  return reasons.slice(0, 5);
+  return lines.slice(0, 5);
 }
 
-function buildRisks(fixture: FixtureCard, rec?: Recommendation) {
+function buildRiskSection(fixture: FixtureCard, rec?: Recommendation) {
   const risks: string[] = [];
   if (!rec) return risks;
 
   if (rec.confidence < 55) {
     risks.push(
-      `Confidence er ikke skyhøy, så dette bør tolkes som et strukturert verdi-spill heller enn et opplagt spill.`
+      `Confidence er ikke skyhøy, så caset bør sees på som et strukturert verdi-spill heller enn et ekstremt sterkt signal.`
     );
   }
 
   if (rec.edge < 0.03) {
     risks.push(
-      `Edge er forholdsvis liten, og mindre markedsbevegelser kan raskt redusere verdien.`
+      `Edge er forholdsvis begrenset, og mindre markedsbevegelser kan redusere verdien raskt.`
     );
   }
 
@@ -193,24 +239,24 @@ function buildRisks(fixture: FixtureCard, rec?: Recommendation) {
 
   if (rec.market === 'away') {
     risks.push(
-      `Bortebane trekker naturlig litt ned, og spillet tåler derfor mindre feilmargin hvis ${fixture.homeTeam} får tidlig momentum.`
+      `Bortebane trekker naturlig litt ned, så spillet tåler mindre feilmargin dersom ${fixture.homeTeam} får tidlig momentum.`
     );
   }
 
   if (rec.market === 'draw') {
     risks.push(
-      `Uavgjort har høy kampvarians, siden ett enkelt mål kan endre sannsynlighetsbildet mye.`
+      `Uavgjort har høy kampvarians. Ett tidlig mål kan endre hele sannsynlighetsbildet.`
     );
   }
 
   risks.push(
-    `Formspillere, dommerprofil og full kampkontekst er ikke fullt modellert ennå, så analysen er fortsatt delvis systemdrevet.`
+    `Konkrete ting som dommerprofil, full spillerform og siste fem kamper er ennå ikke fullt koblet inn i modellen.`
   );
 
   return risks.slice(0, 4);
 }
 
-function buildTeamSummary(
+function buildTeamAngles(
   team: string,
   side: 'home' | 'away',
   restDays?: number,
@@ -223,32 +269,21 @@ function buildTeamSummary(
 
   if (side === 'home') {
     lines.push(
-      `Hjemmebanen gir normalt et lite løft, særlig i jevnere oppgjør der marginene er små.`
+      `Hjemmebanen gir normalt et lite løft, særlig i jevnere kamper der marginene er små.`
     );
     lines.push(
-      `Publikum, kjente omgivelser og mindre reisebelastning er faktorer hjemmejusteringen forsøker å fange opp.`
+      `Publikum, kjente omgivelser og mindre reisebelastning er alle forhold som trekker svakt i hjemmelagets favør.`
     );
   } else {
     lines.push(
-      `Bortebane trekker litt ned, men sterke bortelag kan fortsatt være undervurdert når markedet priser for defensivt.`
+      `Bortebane trekker litt ned, men sterke bortelag kan fortsatt være undervurdert hvis markedet blir for forsiktig.`
     );
     lines.push(
-      `Hvis laget holder sitt vanlige nivå også på reise, kan bortesiden bli mer interessant enn førsteinntrykket tilsier.`
+      `Hvis laget holder sitt vanlige nivå på reise, kan bortesiden være mer interessant enn førsteinntrykket tilsier.`
     );
   }
 
   return lines;
-}
-
-function toneClass(kind: 'default' | 'green' | 'amber' | 'sky' = 'default') {
-  if (kind === 'green') return 'stat-box-value green';
-  if (kind === 'amber') return 'stat-box-value amber';
-  if (kind === 'sky') return 'stat-box-value';
-  return 'stat-box-value';
-}
-
-function meterWidth(value: number, max: number) {
-  return `${Math.min((value / max) * 100, 100)}%`;
 }
 
 export default function MatchDetailPanel({
@@ -271,56 +306,20 @@ export default function MatchDetailPanel({
   }
 
   const topRecommendation = recommendations[0] ?? fixture.topRecommendation;
-  const reasons = buildReasons(fixture, topRecommendation);
-  const risks = buildRisks(fixture, topRecommendation);
-  const homeSummary = buildTeamSummary(
+  const why = buildWhyThisPick(fixture, topRecommendation);
+  const risks = buildRiskSection(fixture, topRecommendation);
+  const homeAngles = buildTeamAngles(
     fixture.homeTeam,
     'home',
     fixture.daysRestHome,
     fixture.injuriesHome
   );
-  const awaySummary = buildTeamSummary(
+  const awayAngles = buildTeamAngles(
     fixture.awayTeam,
     'away',
     fixture.daysRestAway,
     fixture.injuriesAway
   );
-
-  const verdictText = (() => {
-    if (!topRecommendation) {
-      return 'Modellen har foreløpig ikke funnet et tydelig verdi-spill i denne kampen.';
-    }
-
-    if (topRecommendation.market === 'home') {
-      return `Modellen heller mot ${fixture.homeTeam} fordi hjemmelaget kombinerer hjemmefordel med en pris i markedet som fortsatt ser spillbar ut.`;
-    }
-
-    if (topRecommendation.market === 'away') {
-      return `Modellen heller mot ${fixture.awayTeam} fordi bortelaget vurderes sterkere enn det markedet fullt ut ser ut til å prise inn.`;
-    }
-
-    if (topRecommendation.market === 'draw') {
-      return `Modellen leser oppgjøret som forholdsvis jevnt og mener at sannsynligheten for poengdeling kan være svakt underpriset.`;
-    }
-
-    if (topRecommendation.market === 'over2_5') {
-      return `Modellen forventer et kampbilde med nok sjanser og åpenhet til at over-markedet blir interessant.`;
-    }
-
-    if (topRecommendation.market === 'under2_5') {
-      return `Modellen forventer en strammere kamp enn oddsbildet indikerer, og under-linjen fremstår derfor bedre priset.`;
-    }
-
-    if (topRecommendation.market === 'btts_yes') {
-      return `Begge lag vurderes å ha realistiske muligheter til å score i dette oppgjøret.`;
-    }
-
-    if (topRecommendation.market === 'btts_no') {
-      return `Minst ett av lagene kan få problemer med å score i dette kampbildet, ifølge modellen.`;
-    }
-
-    return 'Modellen har vurdert flere markeder i denne kampen.';
-  })();
 
   return (
     <section className="detail-card">
@@ -342,19 +341,19 @@ export default function MatchDetailPanel({
       <div className="detail-stats">
         <div className="stat-box">
           <div className="stat-box-label">Toppspill</div>
-          <div className={toneClass()}>{formatMarket(topRecommendation?.market)}</div>
+          <div className="stat-box-value">{formatMarket(topRecommendation?.market)}</div>
         </div>
         <div className="stat-box">
           <div className="stat-box-label">EV</div>
-          <div className={toneClass('green')}>{pct(topRecommendation?.expectedValue)}</div>
+          <div className="stat-box-value green">{pct(topRecommendation?.expectedValue)}</div>
         </div>
         <div className="stat-box">
           <div className="stat-box-label">Edge</div>
-          <div className={toneClass('amber')}>{pct(topRecommendation?.edge)}</div>
+          <div className="stat-box-value amber">{pct(topRecommendation?.edge)}</div>
         </div>
         <div className="stat-box">
           <div className="stat-box-label">Confidence</div>
-          <div className={toneClass('sky')}>
+          <div className="stat-box-value">
             {topRecommendation ? `${topRecommendation.confidence.toFixed(0)}/100` : '–'}
           </div>
         </div>
@@ -362,7 +361,7 @@ export default function MatchDetailPanel({
 
       <div className="info-panel">
         <h3>Modellens hovedvurdering</h3>
-        <p>{verdictText}</p>
+        <p>{teamLeanText(fixture, topRecommendation)}</p>
         {topRecommendation?.note ? <p>{topRecommendation.note}</p> : null}
       </div>
 
@@ -370,7 +369,7 @@ export default function MatchDetailPanel({
         <div className="info-panel">
           <h3>Hvorfor modellen liker dette spillet</h3>
           <div className="reason-list">
-            {reasons.map((reason, idx) => (
+            {why.map((reason, idx) => (
               <div key={idx} className="reason-card">
                 <div className="reason-number">{idx + 1}</div>
                 <div>{reason}</div>
@@ -392,7 +391,7 @@ export default function MatchDetailPanel({
                 <div
                   className="meter-fill green"
                   style={{
-                    width: meterWidth(topRecommendation?.expectedValue ?? 0, 0.2),
+                    width: `${Math.min(((topRecommendation?.expectedValue ?? 0) / 0.2) * 100, 100)}%`,
                   }}
                 />
               </div>
@@ -407,7 +406,7 @@ export default function MatchDetailPanel({
                 <div
                   className="meter-fill amber"
                   style={{
-                    width: meterWidth(topRecommendation?.edge ?? 0, 0.15),
+                    width: `${Math.min(((topRecommendation?.edge ?? 0) / 0.15) * 100, 100)}%`,
                   }}
                 />
               </div>
@@ -443,7 +442,7 @@ export default function MatchDetailPanel({
       <div className="team-grid">
         <div className="team-box">
           <h3>{fixture.homeTeam}</h3>
-          {homeSummary.map((line, idx) => (
+          {homeAngles.map((line, idx) => (
             <div key={idx} className="team-line">
               {line}
             </div>
@@ -452,7 +451,7 @@ export default function MatchDetailPanel({
 
         <div className="team-box">
           <h3>{fixture.awayTeam}</h3>
-          {awaySummary.map((line, idx) => (
+          {awayAngles.map((line, idx) => (
             <div key={idx} className="team-line">
               {line}
             </div>
@@ -547,8 +546,8 @@ export default function MatchDetailPanel({
       </div>
 
       <div className="warning-box">
-        <strong>Neste steg:</strong> Hvis du vil at analysen skal omtale konkrete ting som formspillere, siste fem kamper,
-        dommerprofil, hjemmestatistikk og lignende på en troverdig måte, må vi koble på flere datakilder i modellen.
+        <strong>Neste steg:</strong> For å få mer presis preview om ting som konkret spillerform, tabellplassering,
+        dommerprofil og siste fem kamper, må vi koble på flere datakilder i modellen.
       </div>
     </section>
   );
