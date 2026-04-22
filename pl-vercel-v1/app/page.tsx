@@ -82,7 +82,7 @@ function formatDate(date: string) {
   }
 }
 
-function getSignalTone(value?: number) {
+function valueTone(value?: number) {
   if (typeof value !== 'number') return 'text-slate-300';
   if (value >= 0.08) return 'text-emerald-400';
   if (value >= 0.04) return 'text-emerald-300';
@@ -90,11 +90,11 @@ function getSignalTone(value?: number) {
   return 'text-slate-300';
 }
 
-function getBorderTone(value?: number) {
+function cardBorderTone(value?: number) {
   if (typeof value !== 'number') return 'border-slate-800';
-  if (value >= 0.08) return 'border-emerald-500/50';
-  if (value >= 0.04) return 'border-emerald-400/30';
-  if (value >= 0.015) return 'border-amber-400/30';
+  if (value >= 0.08) return 'border-emerald-500/40';
+  if (value >= 0.04) return 'border-emerald-400/25';
+  if (value >= 0.015) return 'border-amber-400/25';
   return 'border-slate-800';
 }
 
@@ -108,7 +108,7 @@ function SummaryCard({
   accent?: boolean;
 }) {
   return (
-    <div className="rounded-3xl border border-slate-800 bg-slate-900/70 p-5 shadow-[0_0_0_1px_rgba(255,255,255,0.02)]">
+    <div className="rounded-3xl border border-slate-800 bg-slate-900/70 p-5">
       <div className="text-sm text-slate-400">{label}</div>
       <div className={`mt-2 text-3xl font-bold ${accent ? 'text-emerald-400' : 'text-white'}`}>
         {value}
@@ -117,35 +117,26 @@ function SummaryCard({
   );
 }
 
-function Meter({
+function MetricPill({
   label,
   value,
-  max = 0.2,
-  color = 'emerald',
+  tone = 'default',
 }: {
   label: string;
-  value?: number;
-  max?: number;
-  color?: 'emerald' | 'amber' | 'sky';
+  value: string;
+  tone?: 'default' | 'green' | 'amber';
 }) {
-  const safeValue = typeof value === 'number' ? Math.max(0, Math.min(value, max)) : 0;
-  const width = `${(safeValue / max) * 100}%`;
-  const colorClass =
-    color === 'emerald'
-      ? 'bg-emerald-400'
-      : color === 'amber'
-      ? 'bg-amber-400'
-      : 'bg-sky-400';
+  const toneClass =
+    tone === 'green'
+      ? 'text-emerald-300 border-emerald-500/20 bg-emerald-500/10'
+      : tone === 'amber'
+      ? 'text-amber-300 border-amber-500/20 bg-amber-500/10'
+      : 'text-slate-200 border-slate-700 bg-slate-900/80';
 
   return (
-    <div>
-      <div className="mb-2 flex items-center justify-between text-xs text-slate-400">
-        <span>{label}</span>
-        <span>{pct(value)}</span>
-      </div>
-      <div className="h-2 rounded-full bg-slate-800">
-        <div className={`h-2 rounded-full ${colorClass}`} style={{ width }} />
-      </div>
+    <div className={`rounded-2xl border px-3 py-2 ${toneClass}`}>
+      <div className="text-[11px] uppercase tracking-wide text-slate-400">{label}</div>
+      <div className="mt-1 text-sm font-semibold">{value}</div>
     </div>
   );
 }
@@ -226,7 +217,7 @@ export default function Page() {
 
   if (loading) {
     return (
-      <main className="min-h-screen bg-slate-950 px-4 py-8 text-white">
+      <main className="min-h-screen bg-slate-950 px-4 py-10 text-white">
         <div className="mx-auto max-w-7xl">
           <div className="rounded-3xl border border-slate-800 bg-slate-900/70 p-8">
             Laster dashboard...
@@ -237,17 +228,17 @@ export default function Page() {
   }
 
   return (
-    <main className="min-h-screen bg-[radial-gradient(circle_at_top_left,_rgba(16,185,129,0.08),_transparent_28%),linear-gradient(180deg,_#020617_0%,_#020617_100%)] px-4 py-8 text-white">
+    <main className="min-h-screen bg-[radial-gradient(circle_at_top_left,_rgba(16,185,129,0.08),_transparent_30%),linear-gradient(180deg,_#020617_0%,_#020617_100%)] px-4 py-8 text-white">
       <div className="mx-auto max-w-7xl space-y-6">
-        <section className="rounded-3xl border border-slate-800 bg-slate-900/70 p-6 shadow-[0_0_0_1px_rgba(255,255,255,0.02)] md:p-8">
+        <section className="rounded-3xl border border-slate-800 bg-slate-900/70 p-6 md:p-8">
           <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
             <div>
-              <div className="mb-2 inline-flex rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1 text-xs font-medium text-emerald-300">
+              <div className="mb-3 inline-flex rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1 text-xs font-medium text-emerald-300">
                 Premier League Betting Model
               </div>
               <h1 className="text-3xl font-bold md:text-4xl">Dashboard</h1>
               <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-400 md:text-base">
-                Live data, anbefalte spill og kampanalyse på ett sted.
+                En mer eksklusiv oversikt over live odds, verdi-spill og kampanalyse.
               </p>
             </div>
 
@@ -267,7 +258,7 @@ export default function Page() {
           </div>
         </section>
 
-        <section className="rounded-3xl border border-slate-800 bg-slate-900/70 p-6 shadow-[0_0_0_1px_rgba(255,255,255,0.02)] md:p-8">
+        <section className="rounded-3xl border border-slate-800 bg-slate-900/70 p-6 md:p-8">
           <h2 className="text-xl font-semibold">Filtre</h2>
 
           <div className="mt-5 grid gap-6 lg:grid-cols-2">
@@ -308,8 +299,8 @@ export default function Page() {
 
         <section className="grid gap-6 xl:grid-cols-[430px,minmax(0,1fr)]">
           <div className="space-y-6">
-            <div className="rounded-3xl border border-slate-800 bg-slate-900/70 p-6 shadow-[0_0_0_1px_rgba(255,255,255,0.02)]">
-              <div className="mb-4 flex items-center justify-between gap-3">
+            <div className="rounded-3xl border border-slate-800 bg-slate-900/70 p-6">
+              <div className="mb-4 flex items-center justify-between">
                 <h2 className="text-xl font-semibold">Topp anbefalinger</h2>
                 <div className="rounded-full bg-slate-800 px-3 py-1 text-xs text-slate-300">
                   {filteredRecommendations.length} spill
@@ -326,7 +317,7 @@ export default function Page() {
                     <button
                       key={`${rec.fixtureId}-${rec.market}`}
                       onClick={() => setSelectedFixtureId(String(rec.fixtureId))}
-                      className={`w-full rounded-2xl border bg-slate-950/70 p-4 text-left transition hover:bg-slate-900 ${getBorderTone(
+                      className={`w-full rounded-2xl border bg-slate-950/70 p-4 text-left transition hover:bg-slate-900 ${cardBorderTone(
                         rec.expectedValue
                       )}`}
                     >
@@ -336,37 +327,21 @@ export default function Page() {
                           <div className="mt-1 font-semibold text-white">{rec.match}</div>
                           <div className="mt-2 text-sm text-slate-400">{formatMarket(rec.market)}</div>
                         </div>
-                        <div className={`rounded-full px-3 py-1 text-xs font-medium bg-slate-900 ${getSignalTone(rec.expectedValue)}`}>
+
+                        <div className={`rounded-full px-3 py-1 text-xs font-medium ${valueTone(rec.expectedValue)} bg-slate-900`}>
                           EV {pct(rec.expectedValue)}
                         </div>
                       </div>
 
-                      <div className="mt-4 grid gap-3 text-sm md:grid-cols-2">
-                        <div className="space-y-3 rounded-2xl bg-slate-900/80 p-4">
-                          <div className="flex items-center justify-between">
-                            <span className="text-slate-500">Odds</span>
-                            <span className="font-medium text-slate-100">{rec.bookmakerOdds}</span>
-                          </div>
-                          <div className="flex items-center justify-between">
-                            <span className="text-slate-500">Fair odds</span>
-                            <span className="font-medium text-slate-100">{rec.fairOdds}</span>
-                          </div>
-                          <div className="flex items-center justify-between">
-                            <span className="text-slate-500">Confidence</span>
-                            <span className="font-medium text-slate-100">{rec.confidence.toFixed(0)}/100</span>
-                          </div>
-                        </div>
-
-                        <div className="space-y-4 rounded-2xl bg-slate-900/80 p-4">
-                          <Meter label="EV" value={rec.expectedValue} max={0.2} color="emerald" />
-                          <Meter label="Edge" value={rec.edge} max={0.15} color="amber" />
-                          <Meter
-                            label="Confidence"
-                            value={rec.confidence / 100}
-                            max={1}
-                            color="sky"
-                          />
-                        </div>
+                      <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                        <MetricPill label="Odds" value={String(rec.bookmakerOdds)} />
+                        <MetricPill label="Fair odds" value={String(rec.fairOdds)} />
+                        <MetricPill label="Edge" value={pct(rec.edge)} tone="amber" />
+                        <MetricPill
+                          label="Confidence"
+                          value={`${rec.confidence.toFixed(0)}/100`}
+                          tone="green"
+                        />
                       </div>
                     </button>
                   ))
@@ -374,8 +349,8 @@ export default function Page() {
               </div>
             </div>
 
-            <div className="rounded-3xl border border-slate-800 bg-slate-900/70 p-6 shadow-[0_0_0_1px_rgba(255,255,255,0.02)]">
-              <div className="mb-4 flex items-center justify-between gap-3">
+            <div className="rounded-3xl border border-slate-800 bg-slate-900/70 p-6">
+              <div className="mb-4 flex items-center justify-between">
                 <h2 className="text-xl font-semibold">Kamper</h2>
                 <div className="rounded-full bg-slate-800 px-3 py-1 text-xs text-slate-300">
                   {data?.fixtures?.length ?? 0} kamper
@@ -396,40 +371,26 @@ export default function Page() {
                           : 'border-slate-800 bg-slate-950/70 hover:border-slate-600 hover:bg-slate-900'
                       }`}
                     >
-                      <div className="flex items-start justify-between gap-3">
-                        <div>
-                          <div className="font-semibold text-white">
-                            {fixture.homeTeam} vs {fixture.awayTeam}
-                          </div>
-                          <div className="mt-1 text-sm text-slate-400">{formatDate(fixture.kickoff)}</div>
-                        </div>
-
-                        <div className="rounded-full bg-slate-800 px-3 py-1 text-xs text-slate-300">
-                          {formatMarket(fixture.topRecommendation?.market)}
-                        </div>
+                      <div className="font-semibold text-white">
+                        {fixture.homeTeam} vs {fixture.awayTeam}
                       </div>
 
-                      <div className="mt-4 grid grid-cols-3 gap-3 text-sm">
-                        <div className="rounded-xl bg-slate-900/80 p-3">
-                          <div className="text-xs text-slate-500">EV</div>
-                          <div className={`mt-1 font-medium ${getSignalTone(fixture.topRecommendation?.expectedValue)}`}>
-                            {pct(fixture.topRecommendation?.expectedValue)}
-                          </div>
-                        </div>
+                      <div className="mt-1 text-sm text-slate-400">{formatDate(fixture.kickoff)}</div>
 
-                        <div className="rounded-xl bg-slate-900/80 p-3">
-                          <div className="text-xs text-slate-500">Edge</div>
-                          <div className="mt-1 font-medium text-slate-100">
-                            {pct(fixture.topRecommendation?.edge)}
-                          </div>
-                        </div>
-
-                        <div className="rounded-xl bg-slate-900/80 p-3">
-                          <div className="text-xs text-slate-500">Bookmaker</div>
-                          <div className="mt-1 font-medium text-slate-100">
-                            {fixture.latestOdds?.bookmaker ?? '–'}
-                          </div>
-                        </div>
+                      <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                        <MetricPill
+                          label="Toppspill"
+                          value={formatMarket(fixture.topRecommendation?.market)}
+                        />
+                        <MetricPill
+                          label="EV"
+                          value={pct(fixture.topRecommendation?.expectedValue)}
+                          tone="green"
+                        />
+                        <MetricPill
+                          label="Bookmaker"
+                          value={fixture.latestOdds?.bookmaker ?? '–'}
+                        />
                       </div>
                     </button>
                   );
@@ -438,7 +399,7 @@ export default function Page() {
             </div>
           </div>
 
-          <div className="xl:sticky xl:top-8 xl:self-start">
+          <div className="xl:sticky xl:top-6 xl:self-start">
             <MatchDetailPanel
               fixture={selectedFixture}
               recommendations={selectedRecommendations}
