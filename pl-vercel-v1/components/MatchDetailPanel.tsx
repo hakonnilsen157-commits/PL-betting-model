@@ -112,6 +112,15 @@ function describeForm(form?: string) {
   return `blandet form (${form})`;
 }
 
+function oddsSourceMeta(bookmaker?: string) {
+  const label = bookmaker ?? 'Ukjent';
+  const usingModelOdds = label.toLowerCase().includes('model') || label.toLowerCase().includes('fallback');
+  return {
+    usingModelOdds,
+    label: usingModelOdds ? 'Modellodds' : label,
+  };
+}
+
 function buildPreviewText(fixture: FixtureCard, rec?: Recommendation, source?: string) {
   const home = fixture.homeContext;
   const away = fixture.awayContext;
@@ -172,7 +181,7 @@ function buildPreviewText(fixture: FixtureCard, rec?: Recommendation, source?: s
 
   if (source === 'partial-live') {
     parts.push(
-      `Live-odds er midlertidig delvis utilgjengelige, så analysen støtter seg ekstra mye på tabell, form og lagprofil akkurat nå.`
+      `Lagdataene er live, men oddsdelen er midlertidig erstattet med modellodds fordi bookmaker-feeden ikke er tilgjengelig akkurat nå.`
     );
   }
 
@@ -269,7 +278,7 @@ function buildRiskSection(fixture: FixtureCard, rec?: Recommendation, source?: s
 
   if (source === 'partial-live') {
     risks.push(
-      `Noen odds kommer fra fallback-modell i stedet for live bookmaker-feed akkurat nå, så prisbildet bør tolkes litt mer forsiktig.`
+      `Prisbildet bygger akkurat nå på modellodds og ikke direkte bookmaker-feed, så oddsdelen bør tolkes mer forsiktig enn lagdataene.`
     );
   }
 
@@ -344,6 +353,7 @@ export default function MatchDetailPanel({
   const homeAngles = buildTeamAngles(fixture.homeContext, 'home');
   const awayAngles = buildTeamAngles(fixture.awayContext, 'away');
   const preview = buildPreviewText(fixture, topRecommendation, source);
+  const oddsMeta = oddsSourceMeta(fixture.latestOdds?.bookmaker);
 
   return (
     <section className="detail-card">
@@ -355,7 +365,7 @@ export default function MatchDetailPanel({
       <div className="detail-meta">
         <span>Kampstart: {formatDate(fixture.kickoff)}</span>
         <span>•</span>
-        <span>Bookmaker: {fixture.latestOdds?.bookmaker ?? 'Ukjent'}</span>
+        <span>Oddsgrunnlag: {oddsMeta.label}</span>
         <span>•</span>
         <span>Runde: {fixture.round}</span>
       </div>
@@ -381,6 +391,16 @@ export default function MatchDetailPanel({
             {topRecommendation ? `${topRecommendation.confidence.toFixed(0)}/100` : '–'}
           </div>
         </div>
+      </div>
+
+      <div className="info-panel">
+        <h3>Status på datagrunnlag</h3>
+        <p>
+          <strong>Lagdata:</strong> live tabell og form. <strong>Odds:</strong>{' '}
+          {oddsMeta.usingModelOdds
+            ? 'modellbasert fallback fordi bookmaker-feed er utilgjengelig akkurat nå.'
+            : 'live bookmaker-odds.'}
+        </p>
       </div>
 
       <div className="info-panel">
@@ -485,6 +505,12 @@ export default function MatchDetailPanel({
       <div className="info-panel">
         <h3>Oddsoversikt</h3>
 
+        {oddsMeta.usingModelOdds ? (
+          <p className="section-subtitle" style={{ marginBottom: 16 }}>
+            Disse tallene er modellodds, ikke direkte bookmaker-odds.
+          </p>
+        ) : null}
+
         <div className="odds-grid">
           <div className="odds-card">
             <div className="odds-card-title">1X2</div>
@@ -559,8 +585,10 @@ export default function MatchDetailPanel({
                   <div className="metric-pill-value">{rec.fairOdds}</div>
                 </div>
                 <div className="metric-pill">
-                  <div className="metric-pill-label">Bookmakerodds</div>
-                  <div className="metric-pill-value">{rec.bookmakerOdds}</div>
+                  <div className="metric-pill-label">Oddsgrunnlag</div>
+                  <div className="metric-pill-value">
+                    {oddsMeta.usingModelOdds ? 'Modellodds' : rec.bookmakerOdds}
+                  </div>
                 </div>
               </div>
             </div>
