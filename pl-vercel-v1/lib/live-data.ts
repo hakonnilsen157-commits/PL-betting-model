@@ -2,12 +2,13 @@ import { getRoundRecommendations, getRoundFixtures, scoreFixture } from '@/lib/m
 import { MatchFixture, OddsLine } from '@/lib/types';
 
 const ODDS_BASE = 'https://api.the-odds-api.com/v4';
-const FOOTBALL_BASE = 'https://v3.football.api-sports.io';
-const EPL_LEAGUE_ID = Number(process.env.API_FOOTBALL_LEAGUE_ID ?? '39');
+const FOOTBALL_DATA_BASE = 'https://api.football-data.org/v4';
+
 const ODDS_BOOKMAKERS = process.env.ODDS_BOOKMAKERS ?? '';
 const ODDS_REGIONS = process.env.ODDS_REGIONS ?? 'uk,eu';
 const SPORT_KEY = process.env.ODDS_SPORT_KEY ?? 'soccer_epl';
 const MAX_FIXTURES = Number(process.env.MAX_FIXTURES ?? '10');
+const FOOTBALL_DATA_COMPETITION = process.env.FOOTBALL_DATA_COMPETITION ?? 'PL';
 
 type OddsApiOutcome = { name: string; price: number; point?: number };
 type OddsApiMarket = { key: string; outcomes: OddsApiOutcome[] };
@@ -20,48 +21,59 @@ type OddsApiEvent = {
   bookmakers?: OddsApiBookmaker[];
 };
 
-type FootballFixture = {
-  fixture: { id: number; date: string; status?: { short?: string } };
-  league?: { round?: string };
-  teams: {
-    home: { id?: number; name: string; winner?: boolean | null };
-    away: { id?: number; name: string; winner?: boolean | null };
-  };
-  goals?: {
-    home?: number | null;
-    away?: number | null;
-  };
-};
-
-type FootballInjury = {
-  fixture?: { id?: number };
-  team?: { name?: string };
-  player?: { name?: string; id?: number; type?: string; reason?: string };
-};
-
-type FootballStandingSide = {
-  played?: number;
-  win?: number;
-  draw?: number;
-  lose?: number;
-  goals?: {
-    for?: number;
-    against?: number;
-  };
-};
-
-type FootballStandingsRow = {
-  rank?: number;
-  points?: number;
-  form?: string;
-  description?: string;
+type FootballDataStandingRow = {
+  position?: number;
   team?: {
     id?: number;
     name?: string;
+    shortName?: string;
+    tla?: string;
   };
-  all?: FootballStandingSide;
-  home?: FootballStandingSide;
-  away?: FootballStandingSide;
+  playedGames?: number;
+  won?: number;
+  draw?: number;
+  lost?: number;
+  points?: number;
+  goalsFor?: number;
+  goalsAgainst?: number;
+  goalDifference?: number;
+};
+
+type FootballDataStandingsResponse = {
+  standings?: Array<{
+    type?: string;
+    table?: FootballDataStandingRow[];
+  }>;
+};
+
+type FootballDataMatch = {
+  id: number;
+  utcDate: string;
+  status: string;
+  matchday?: number;
+  homeTeam: {
+    id?: number;
+    name: string;
+    shortName?: string;
+    tla?: string;
+  };
+  awayTeam: {
+    id?: number;
+    name: string;
+    shortName?: string;
+    tla?: string;
+  };
+  score?: {
+    fullTime?: {
+      home?: number | null;
+      away?: number | null;
+    };
+    winner?: 'HOME_TEAM' | 'AWAY_TEAM' | 'DRAW' | null;
+  };
+};
+
+type FootballDataMatchesResponse = {
+  matches?: FootballDataMatch[];
 };
 
 type TeamContext = {
@@ -70,7 +82,6 @@ type TeamContext = {
   rank?: number;
   points?: number;
   form?: string;
-  description?: string;
   goalsFor?: number;
   goalsAgainst?: number;
   played?: number;
@@ -95,26 +106,35 @@ function isLiveMode() {
   return (process.env.DATA_MODE ?? 'mock') === 'live';
 }
 
-function buildSeasonsToTry() {
-  const envSeason = Number(process.env.API_FOOTBALL_SEASON ?? new Date().getUTCFullYear());
-  return Array.from(new Set([envSeason, envSeason - 1, 2025, 2026]));
-}
-
 function normalizeTeamName(name: string): string {
   return name
     .replace(/\s+/g, ' ')
     .replace('AFC Bournemouth', 'Bournemouth')
+    .replace('Bournemouth AFC', 'Bournemouth')
+    .replace('Nottingham Forest FC', 'Nottm Forest')
     .replace('Nottingham Forest', 'Nottm Forest')
+    .replace('Wolverhampton Wanderers FC', 'Wolves')
     .replace('Wolverhampton Wanderers', 'Wolves')
-    .replace('Manchester Utd', 'Manchester United')
-    .replace('Newcastle Utd', 'Newcastle United')
+    .replace('Tottenham Hotspur FC', 'Tottenham')
     .replace('Tottenham Hotspur', 'Tottenham')
+    .replace('Manchester United FC', 'Manchester United')
+    .replace('Manchester City FC', 'Manchester City')
+    .replace('Newcastle United FC', 'Newcastle United')
+    .replace('Brighton & Hove Albion FC', 'Brighton and Hove Albion')
+    .replace('Leeds United FC', 'Leeds United')
+    .replace('West Ham United FC', 'West Ham United')
     .trim();
 }
 
-function extractRoundNumber(roundLabel?: string): number {
-  const match = roundLabel?.match(/(\d+)/);
-  return match ? Number(match[1]) : 0;
+function parseMoneyline(bookmaker?: OddsApiBookmaker) {
+  return bookmaker?.markets.find((m) => m.key === 'h2h')?.outcomes ?? [];
+}
+
+function parseTotals(bookmaker?: OddsApiBookmaker) {
+  const outcomes = bookmaker?.markets.find((m) => m.key === 'totals')?.outcomes ?? [];
+  const over = outcomes.find((o) => o.name.toLowerCase() === 'over' && Number(o.point) === 2.5);
+  const under = outcomes.find((o) => o.name.toLowerCase() === 'under' && Number(o.point) === 2.5);
+  return { over2_5: over?.price ?? 1.95, under2_5: under?.price ?? 1.95 };
 }
 
 async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
@@ -135,15 +155,158 @@ async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
   return response.json() as Promise<T>;
 }
 
-function parseMoneyline(bookmaker?: OddsApiBookmaker) {
-  return bookmaker?.markets.find((m) => m.key === 'h2h')?.outcomes ?? [];
+async function fetchFootballDataJson<T>(path: string): Promise<T> {
+  const apiKey = process.env.FOOTBALL_DATA_API_KEY;
+  if (!apiKey) {
+    throw new Error('Missing FOOTBALL_DATA_API_KEY');
+  }
+
+  return fetchJson<T>(`${FOOTBALL_DATA_BASE}${path}`, {
+    headers: {
+      'X-Auth-Token': apiKey,
+    },
+  });
 }
 
-function parseTotals(bookmaker?: OddsApiBookmaker) {
-  const outcomes = bookmaker?.markets.find((m) => m.key === 'totals')?.outcomes ?? [];
-  const over = outcomes.find((o) => o.name.toLowerCase() === 'over' && Number(o.point) === 2.5);
-  const under = outcomes.find((o) => o.name.toLowerCase() === 'under' && Number(o.point) === 2.5);
-  return { over2_5: over?.price ?? 1.95, under2_5: under?.price ?? 1.95 };
+function resultLetterForTeam(teamId: number, match: FootballDataMatch): 'W' | 'D' | 'L' | null {
+  const winner = match.score?.winner;
+  const homeId = match.homeTeam.id;
+  const awayId = match.awayTeam.id;
+
+  if (!winner || winner === null) return 'D';
+
+  if (homeId === teamId) {
+    if (winner === 'HOME_TEAM') return 'W';
+    if (winner === 'DRAW') return 'D';
+    return 'L';
+  }
+
+  if (awayId === teamId) {
+    if (winner === 'AWAY_TEAM') return 'W';
+    if (winner === 'DRAW') return 'D';
+    return 'L';
+  }
+
+  return null;
+}
+
+async function fetchRecentFormForTeam(teamId: number): Promise<string | undefined> {
+  try {
+    const data = await fetchFootballDataJson<FootballDataMatchesResponse>(
+      `/teams/${teamId}/matches?status=FINISHED&limit=5`
+    );
+
+    const matches = data.matches ?? [];
+    if (!matches.length) return undefined;
+
+    const form = matches
+      .map((match) => resultLetterForTeam(teamId, match))
+      .filter((x): x is 'W' | 'D' | 'L' => x !== null)
+      .slice(0, 5)
+      .join('');
+
+    return form || undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+async function fetchStandingsMap(): Promise<Map<string, TeamContext>> {
+  try {
+    const data = await fetchFootballDataJson<FootballDataStandingsResponse>(
+      `/competitions/${FOOTBALL_DATA_COMPETITION}/standings`
+    );
+
+    const totalTable =
+      data.standings?.find((s) => s.type === 'TOTAL')?.table ??
+      data.standings?.[0]?.table ??
+      [];
+
+    const homeTable =
+      data.standings?.find((s) => s.type === 'HOME')?.table ?? [];
+
+    const awayTable =
+      data.standings?.find((s) => s.type === 'AWAY')?.table ?? [];
+
+    const homeMap = new Map<number, FootballDataStandingRow>();
+    const awayMap = new Map<number, FootballDataStandingRow>();
+
+    for (const row of homeTable) {
+      if (row.team?.id) homeMap.set(row.team.id, row);
+    }
+    for (const row of awayTable) {
+      if (row.team?.id) awayMap.set(row.team.id, row);
+    }
+
+    const map = new Map<string, TeamContext>();
+
+    for (const row of totalTable) {
+      const rawName = row.team?.shortName || row.team?.name || '';
+      const name = normalizeTeamName(rawName);
+      if (!name) continue;
+
+      const teamId = row.team?.id;
+      const home = teamId ? homeMap.get(teamId) : undefined;
+      const away = teamId ? awayMap.get(teamId) : undefined;
+
+      map.set(name, {
+        teamId,
+        teamName: name,
+        rank: row.position,
+        points: row.points,
+        goalsFor: row.goalsFor,
+        goalsAgainst: row.goalsAgainst,
+        played: row.playedGames,
+        wins: row.won,
+        draws: row.draw,
+        losses: row.lost,
+        homePlayed: home?.playedGames,
+        homeWins: home?.won,
+        homeDraws: home?.draw,
+        homeLosses: home?.lost,
+        awayPlayed: away?.playedGames,
+        awayWins: away?.won,
+        awayDraws: away?.draw,
+        awayLosses: away?.lost,
+        homeGoalsFor: home?.goalsFor,
+        homeGoalsAgainst: home?.goalsAgainst,
+        awayGoalsFor: away?.goalsFor,
+        awayGoalsAgainst: away?.goalsAgainst,
+      });
+    }
+
+    return map;
+  } catch {
+    return new Map();
+  }
+}
+
+async function enrichRecentFormForRelevantTeams(
+  standingsMap: Map<string, TeamContext>,
+  liveOdds: OddsApiEvent[]
+): Promise<Map<string, TeamContext>> {
+  const next = new Map(standingsMap);
+
+  const relevantNames = new Set<string>();
+  for (const event of liveOdds) {
+    relevantNames.add(normalizeTeamName(event.home_team));
+    relevantNames.add(normalizeTeamName(event.away_team));
+  }
+
+  for (const teamName of relevantNames) {
+    const ctx = next.get(teamName);
+    if (!ctx?.teamId) continue;
+
+    const form = await fetchRecentFormForTeam(ctx.teamId);
+    if (!form) continue;
+
+    next.set(teamName, {
+      ...ctx,
+      form,
+    });
+  }
+
+  return next;
 }
 
 export async function fetchLiveOdds(): Promise<OddsApiEvent[]> {
@@ -162,193 +325,6 @@ export async function fetchLiveOdds(): Promise<OddsApiEvent[]> {
   return fetchJson<OddsApiEvent[]>(`${ODDS_BASE}/sports/${SPORT_KEY}/odds?${qs.toString()}`);
 }
 
-export async function fetchLiveFixtures(): Promise<FootballFixture[]> {
-  if (!process.env.API_FOOTBALL_KEY) return [];
-
-  const seasonsToTry = buildSeasonsToTry();
-
-  for (const season of seasonsToTry) {
-    try {
-      const qs = new URLSearchParams({
-        league: String(EPL_LEAGUE_ID),
-        season: String(season),
-        timezone: 'Europe/Oslo',
-      });
-
-      const data = await fetchJson<{ response: FootballFixture[] }>(
-        `${FOOTBALL_BASE}/fixtures?${qs.toString()}`,
-        {
-          headers: { 'x-apisports-key': process.env.API_FOOTBALL_KEY! },
-        }
-      );
-
-      const fixtures = (data.response ?? [])
-        .filter((f) => ['NS', 'TBD', 'PST'].includes(f.fixture.status?.short ?? 'NS'))
-        .slice(0, MAX_FIXTURES);
-
-      if (fixtures.length > 0) return fixtures;
-    } catch {
-      // ignore and continue
-    }
-  }
-
-  return [];
-}
-
-async function fetchLeagueStandingsMap(): Promise<Map<string, TeamContext>> {
-  if (!process.env.API_FOOTBALL_KEY) return new Map();
-
-  const seasonsToTry = buildSeasonsToTry();
-
-  for (const season of seasonsToTry) {
-    try {
-      const qs = new URLSearchParams({
-        league: String(EPL_LEAGUE_ID),
-        season: String(season),
-      });
-
-      const data = await fetchJson<{
-        response?: Array<{
-          league?: {
-            standings?: FootballStandingsRow[][];
-          };
-        }>;
-      }>(`${FOOTBALL_BASE}/standings?${qs.toString()}`, {
-        headers: { 'x-apisports-key': process.env.API_FOOTBALL_KEY! },
-      });
-
-      const rows = data.response?.[0]?.league?.standings?.[0] ?? [];
-      if (!rows.length) continue;
-
-      const map = new Map<string, TeamContext>();
-
-      for (const row of rows) {
-        const name = normalizeTeamName(row.team?.name ?? '');
-        if (!name) continue;
-
-        map.set(name, {
-          teamId: row.team?.id,
-          teamName: name,
-          rank: row.rank,
-          points: row.points,
-          form: row.form,
-          description: row.description,
-          goalsFor: row.all?.goals?.for,
-          goalsAgainst: row.all?.goals?.against,
-          played: row.all?.played,
-          wins: row.all?.win,
-          draws: row.all?.draw,
-          losses: row.all?.lose,
-          homePlayed: row.home?.played,
-          homeWins: row.home?.win,
-          homeDraws: row.home?.draw,
-          homeLosses: row.home?.lose,
-          awayPlayed: row.away?.played,
-          awayWins: row.away?.win,
-          awayDraws: row.away?.draw,
-          awayLosses: row.away?.lose,
-          homeGoalsFor: row.home?.goals?.for,
-          homeGoalsAgainst: row.home?.goals?.against,
-          awayGoalsFor: row.away?.goals?.for,
-          awayGoalsAgainst: row.away?.goals?.against,
-        });
-      }
-
-      return map;
-    } catch {
-      // ignore and continue
-    }
-  }
-
-  return new Map();
-}
-
-function getFixtureResultForTeam(teamId: number, fixture: FootballFixture): 'W' | 'D' | 'L' | null {
-  const homeId = fixture.teams.home.id;
-  const awayId = fixture.teams.away.id;
-  const homeGoals = fixture.goals?.home;
-  const awayGoals = fixture.goals?.away;
-
-  if (homeGoals == null || awayGoals == null) return null;
-
-  if (homeId === teamId) {
-    if (homeGoals > awayGoals) return 'W';
-    if (homeGoals === awayGoals) return 'D';
-    return 'L';
-  }
-
-  if (awayId === teamId) {
-    if (awayGoals > homeGoals) return 'W';
-    if (awayGoals === homeGoals) return 'D';
-    return 'L';
-  }
-
-  return null;
-}
-
-async function fetchRecentFormMapForTeamIds(teamIds: number[]): Promise<Map<number, string>> {
-  if (!process.env.API_FOOTBALL_KEY || teamIds.length === 0) return new Map();
-
-  const uniqueIds = Array.from(new Set(teamIds.filter(Boolean)));
-  const formMap = new Map<number, string>();
-
-  for (const teamId of uniqueIds) {
-    try {
-      const qs = new URLSearchParams({
-        team: String(teamId),
-        last: '5',
-      });
-
-      const data = await fetchJson<{ response: FootballFixture[] }>(
-        `${FOOTBALL_BASE}/fixtures?${qs.toString()}`,
-        {
-          headers: { 'x-apisports-key': process.env.API_FOOTBALL_KEY! },
-        }
-      );
-
-      const form = (data.response ?? [])
-        .map((fixture) => getFixtureResultForTeam(teamId, fixture))
-        .filter((x): x is 'W' | 'D' | 'L' => x !== null)
-        .join('');
-
-      if (form) {
-        formMap.set(teamId, form);
-      }
-    } catch {
-      // ignore
-    }
-  }
-
-  return formMap;
-}
-
-export async function fetchLiveInjuriesByFixtureIds(fixtureIds: number[]) {
-  if (!process.env.API_FOOTBALL_KEY || fixtureIds.length === 0) return [] as FootballInjury[];
-
-  const responses = await Promise.all(
-    fixtureIds.map(async (fixtureId) => {
-      try {
-        const qs = new URLSearchParams({ fixture: String(fixtureId) });
-        const data = await fetchJson<{ response: FootballInjury[] }>(
-          `${FOOTBALL_BASE}/injuries?${qs.toString()}`,
-          {
-            headers: { 'x-apisports-key': process.env.API_FOOTBALL_KEY! },
-          }
-        );
-        return data.response;
-      } catch {
-        return [] as FootballInjury[];
-      }
-    })
-  );
-
-  return responses.flat();
-}
-
-function countTeamInjuries(items: FootballInjury[], teamName: string) {
-  return items.filter((x) => normalizeTeamName(x.team?.name ?? '') === normalizeTeamName(teamName)).length;
-}
-
 export async function getLiveDashboard(round?: number) {
   if (!isLiveMode()) {
     const selectedRound = round ?? 34;
@@ -362,46 +338,9 @@ export async function getLiveDashboard(round?: number) {
     };
   }
 
-  const standingsMap = await fetchLeagueStandingsMap();
-  const liveFixtures = await fetchLiveFixtures().catch(() => [] as FootballFixture[]);
-  const liveInjuries = await fetchLiveInjuriesByFixtureIds(
-    liveFixtures.map((f) => f.fixture.id)
-  ).catch(() => [] as FootballInjury[]);
   const liveOdds = await fetchLiveOdds();
-
-  const oddsMap = new Map(
-    liveOdds.map((e) => [`${normalizeTeamName(e.home_team)}__${normalizeTeamName(e.away_team)}`, e])
-  );
-
-  const relevantTeamIds = new Set<number>();
-  for (const event of liveOdds) {
-    const homeName = normalizeTeamName(event.home_team);
-    const awayName = normalizeTeamName(event.away_team);
-
-    const homeCtx = standingsMap.get(homeName);
-    const awayCtx = standingsMap.get(awayName);
-
-    if (homeCtx?.teamId) relevantTeamIds.add(homeCtx.teamId);
-    if (awayCtx?.teamId) relevantTeamIds.add(awayCtx.teamId);
-  }
-
-  const recentFormMap = await fetchRecentFormMapForTeamIds(Array.from(relevantTeamIds));
-
-  for (const [teamName, ctx] of standingsMap.entries()) {
-    if (ctx.teamId && recentFormMap.has(ctx.teamId)) {
-      standingsMap.set(teamName, {
-        ...ctx,
-        form: recentFormMap.get(ctx.teamId),
-      });
-    }
-  }
-
-  const injuryMap = new Map<number, FootballInjury[]>();
-  for (const injury of liveInjuries) {
-    const fixtureId = injury.fixture?.id;
-    if (!fixtureId) continue;
-    injuryMap.set(fixtureId, [...(injuryMap.get(fixtureId) ?? []), injury]);
-  }
+  const baseStandingsMap = await fetchStandingsMap();
+  const standingsMap = await enrichRecentFormForRelevantTeams(baseStandingsMap, liveOdds);
 
   const mappedFixtures: Array<
     MatchFixture & {
@@ -410,105 +349,50 @@ export async function getLiveDashboard(round?: number) {
     }
   > = [];
   const mappedOdds: OddsLine[] = [];
-  const unmatchedFixtures: Array<{ home: string; away: string }> = [];
   const skippedNoH2H: Array<{ home: string; away: string; bookmaker?: string }> = [];
 
-  if (liveFixtures.length > 0) {
-    for (const fixture of liveFixtures) {
-      const homeTeam = normalizeTeamName(fixture.teams.home.name);
-      const awayTeam = normalizeTeamName(fixture.teams.away.name);
-      const event = oddsMap.get(`${homeTeam}__${awayTeam}`);
+  for (const event of liveOdds) {
+    const homeTeam = normalizeTeamName(event.home_team);
+    const awayTeam = normalizeTeamName(event.away_team);
+    const bookmaker = event.bookmakers?.[0];
+    const h2h = parseMoneyline(bookmaker);
+    const totals = parseTotals(bookmaker);
 
-      if (!event) {
-        unmatchedFixtures.push({ home: homeTeam, away: awayTeam });
-        continue;
-      }
+    const home = h2h.find((o) => normalizeTeamName(o.name) === homeTeam)?.price;
+    const away = h2h.find((o) => normalizeTeamName(o.name) === awayTeam)?.price;
+    const draw = h2h.find((o) => o.name.toLowerCase() === 'draw')?.price;
 
-      const bookmaker = event.bookmakers?.[0];
-      const h2h = parseMoneyline(bookmaker);
-      const totals = parseTotals(bookmaker);
-      const injuries = injuryMap.get(fixture.fixture.id) ?? [];
-
-      const home = h2h.find((o) => normalizeTeamName(o.name) === homeTeam)?.price;
-      const away = h2h.find((o) => normalizeTeamName(o.name) === awayTeam)?.price;
-      const draw = h2h.find((o) => o.name.toLowerCase() === 'draw')?.price;
-
-      if (!home || !away || !draw) {
-        skippedNoH2H.push({ home: homeTeam, away: awayTeam, bookmaker: bookmaker?.title });
-        continue;
-      }
-
-      mappedFixtures.push({
-        id: String(fixture.fixture.id),
-        round: extractRoundNumber(fixture.league?.round) || round || 34,
-        kickoff: fixture.fixture.date,
-        homeTeam,
-        awayTeam,
-        daysRestHome: 6,
-        daysRestAway: 6,
-        injuriesHome: countTeamInjuries(injuries, homeTeam),
-        injuriesAway: countTeamInjuries(injuries, awayTeam),
-        homeContext: standingsMap.get(homeTeam),
-        awayContext: standingsMap.get(awayTeam),
-      });
-
-      mappedOdds.push({
-        fixtureId: String(fixture.fixture.id),
-        bookmaker: bookmaker?.title ?? 'Market',
-        home,
-        draw,
-        away,
-        over2_5: totals.over2_5,
-        under2_5: totals.under2_5,
-        btts_yes: 1.9,
-        btts_no: 1.9,
-        capturedAt: bookmaker?.last_update ?? new Date().toISOString(),
-      });
+    if (!home || !away || !draw) {
+      skippedNoH2H.push({ home: homeTeam, away: awayTeam, bookmaker: bookmaker?.title });
+      continue;
     }
-  } else {
-    for (const event of liveOdds) {
-      const homeTeam = normalizeTeamName(event.home_team);
-      const awayTeam = normalizeTeamName(event.away_team);
-      const bookmaker = event.bookmakers?.[0];
-      const h2h = parseMoneyline(bookmaker);
-      const totals = parseTotals(bookmaker);
 
-      const home = h2h.find((o) => normalizeTeamName(o.name) === homeTeam)?.price;
-      const away = h2h.find((o) => normalizeTeamName(o.name) === awayTeam)?.price;
-      const draw = h2h.find((o) => o.name.toLowerCase() === 'draw')?.price;
+    mappedFixtures.push({
+      id: String(event.id),
+      round: round ?? 34,
+      kickoff: event.commence_time,
+      homeTeam,
+      awayTeam,
+      daysRestHome: 6,
+      daysRestAway: 6,
+      injuriesHome: 0,
+      injuriesAway: 0,
+      homeContext: standingsMap.get(homeTeam),
+      awayContext: standingsMap.get(awayTeam),
+    });
 
-      if (!home || !away || !draw) {
-        skippedNoH2H.push({ home: homeTeam, away: awayTeam, bookmaker: bookmaker?.title });
-        continue;
-      }
-
-      mappedFixtures.push({
-        id: String(event.id),
-        round: round ?? 34,
-        kickoff: event.commence_time,
-        homeTeam,
-        awayTeam,
-        daysRestHome: 6,
-        daysRestAway: 6,
-        injuriesHome: 0,
-        injuriesAway: 0,
-        homeContext: standingsMap.get(homeTeam),
-        awayContext: standingsMap.get(awayTeam),
-      });
-
-      mappedOdds.push({
-        fixtureId: String(event.id),
-        bookmaker: bookmaker?.title ?? 'Market',
-        home,
-        draw,
-        away,
-        over2_5: totals.over2_5,
-        under2_5: totals.under2_5,
-        btts_yes: 1.9,
-        btts_no: 1.9,
-        capturedAt: bookmaker?.last_update ?? new Date().toISOString(),
-      });
-    }
+    mappedOdds.push({
+      fixtureId: String(event.id),
+      bookmaker: bookmaker?.title ?? 'Market',
+      home,
+      draw,
+      away,
+      over2_5: totals.over2_5,
+      under2_5: totals.under2_5,
+      btts_yes: 1.9,
+      btts_no: 1.9,
+      capturedAt: bookmaker?.last_update ?? new Date().toISOString(),
+    });
   }
 
   const recommendations = mappedFixtures
@@ -534,14 +418,9 @@ export async function getLiveDashboard(round?: number) {
     generatedAt: new Date().toISOString(),
     debug: {
       mode: 'live',
-      liveFixturesCount: liveFixtures.length,
       liveOddsCount: liveOdds.length,
-      liveInjuriesCount: liveInjuries.length,
-      mappedFixturesCount: mappedFixtures.length,
-      mappedOddsCount: mappedOdds.length,
       standingsCount: standingsMap.size,
-      recentFormCount: recentFormMap.size,
-      standingsTeamsSample: Array.from(standingsMap.keys()).slice(0, 10),
+      recentFormTeamsCount: Array.from(standingsMap.values()).filter((x) => !!x.form).length,
       firstFixture: fixtureCards[0]
         ? {
             homeTeam: fixtureCards[0].homeTeam,
@@ -550,7 +429,6 @@ export async function getLiveDashboard(round?: number) {
             awayContext: fixtureCards[0].awayContext ?? null,
           }
         : null,
-      unmatchedFixtures: unmatchedFixtures.slice(0, 10),
       skippedNoH2H: skippedNoH2H.slice(0, 10),
     },
   };
