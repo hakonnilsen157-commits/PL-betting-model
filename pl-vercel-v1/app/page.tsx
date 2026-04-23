@@ -18,6 +18,32 @@ type Recommendation = {
   note: string;
 };
 
+type TeamContext = {
+  teamId?: number;
+  teamName: string;
+  rank?: number;
+  points?: number;
+  form?: string;
+  goalsFor?: number;
+  goalsAgainst?: number;
+  played?: number;
+  wins?: number;
+  draws?: number;
+  losses?: number;
+  homePlayed?: number;
+  homeWins?: number;
+  homeDraws?: number;
+  homeLosses?: number;
+  awayPlayed?: number;
+  awayWins?: number;
+  awayDraws?: number;
+  awayLosses?: number;
+  homeGoalsFor?: number;
+  homeGoalsAgainst?: number;
+  awayGoalsFor?: number;
+  awayGoalsAgainst?: number;
+};
+
 type FixtureCard = {
   id: string;
   round: number;
@@ -40,6 +66,8 @@ type FixtureCard = {
     capturedAt?: string;
   };
   topRecommendation?: Recommendation;
+  homeContext?: TeamContext;
+  awayContext?: TeamContext;
 };
 
 type DashboardResponse = {
@@ -48,6 +76,11 @@ type DashboardResponse = {
   recommendations: Recommendation[];
   source: string;
   generatedAt: string;
+  debug?: {
+    oddsAvailable?: boolean;
+    usingFallbackOdds?: boolean;
+    oddsError?: string | null;
+  };
 };
 
 function pct(v?: number) {
@@ -90,6 +123,13 @@ function cardBorderClass(value?: number) {
   return {};
 }
 
+function sourceLabel(source?: string) {
+  if (source === 'partial-live') return 'Partial live';
+  if (source === 'live') return 'Live';
+  if (source === 'mock') return 'Mock';
+  return source ?? '–';
+}
+
 export default function Page() {
   const [data, setData] = useState<DashboardResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -102,22 +142,18 @@ export default function Page() {
 
     async function load() {
       try {
-        const [fixturesRes, recsRes] = await Promise.all([
-          fetch('/api/fixtures', { cache: 'no-store' }),
-          fetch('/api/recommendations', { cache: 'no-store' }),
-        ]);
-
-        const fixturesJson = await fixturesRes.json();
-        const recsJson = await recsRes.json();
+        const response = await fetch('/api/fixtures', { cache: 'no-store' });
+        const json = await response.json();
 
         if (!mounted) return;
 
         const nextData: DashboardResponse = {
-          round: fixturesJson.round ?? recsJson.round ?? 0,
-          fixtures: fixturesJson.fixtures ?? [],
-          recommendations: recsJson.recommendations ?? [],
-          source: fixturesJson.source ?? recsJson.source ?? 'unknown',
-          generatedAt: fixturesJson.generatedAt ?? recsJson.generatedAt ?? new Date().toISOString(),
+          round: json.round ?? 0,
+          fixtures: json.fixtures ?? [],
+          recommendations: json.recommendations ?? [],
+          source: json.source ?? 'unknown',
+          generatedAt: json.generatedAt ?? new Date().toISOString(),
+          debug: json.debug ?? undefined,
         };
 
         setData(nextData);
@@ -182,7 +218,7 @@ export default function Page() {
             <div className="eyebrow">Premier League Betting Model</div>
             <h1 className="hero-title">Dashboard</h1>
             <p className="hero-subtitle">
-              En mer eksklusiv oversikt over live odds, verdi-spill og kampanalyse.
+              En mer eksklusiv oversikt over odds, verdi-spill og kampanalyse.
             </p>
           </div>
 
@@ -194,6 +230,16 @@ export default function Page() {
           </div>
         </div>
 
+        {data?.source === 'partial-live' ? (
+          <div className="info-panel" style={{ marginTop: 20 }}>
+            <h3>Live-kilde delvis tilgjengelig</h3>
+            <p>
+              Oddsleverandøren er midlertidig utilgjengelig, så appen viser fortsatt kampkontekst,
+              tabell og form, men bruker fallback-odds der det trengs.
+            </p>
+          </div>
+        ) : null}
+
         <div className="summary-grid">
           <div className="summary-card">
             <div className="summary-label">Runde</div>
@@ -201,7 +247,7 @@ export default function Page() {
           </div>
           <div className="summary-card">
             <div className="summary-label">Data mode</div>
-            <div className="summary-value">{data?.source ?? '–'}</div>
+            <div className="summary-value">{sourceLabel(data?.source)}</div>
           </div>
           <div className="summary-card">
             <div className="summary-label">Anbefalte spill</div>
@@ -370,6 +416,7 @@ export default function Page() {
         <MatchDetailPanel
           fixture={selectedFixture}
           recommendations={selectedRecommendations}
+          source={data?.source}
         />
       </section>
     </main>
