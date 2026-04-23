@@ -250,6 +250,8 @@ export default function Page() {
     });
   }, [data, marketFilter, minEV]);
 
+  const shortlist = useMemo(() => filteredRecommendations.slice(0, 3), [filteredRecommendations]);
+
   const selectedFixture = useMemo(() => {
     if (!data?.fixtures?.length) return null;
     return data.fixtures.find((f) => String(f.id) === String(selectedFixtureId)) ?? data.fixtures[0];
@@ -318,6 +320,28 @@ export default function Page() {
               <strong>{bestRecommendation.match}</strong> · {formatMarket(bestRecommendation.market)} · EV {pct(bestRecommendation.expectedValue)} · {confidenceBand(bestRecommendation.confidence)}.
             </p>
             <p>{buildRecommendationSummary(bestRecommendation)}</p>
+          </div>
+        ) : null}
+
+        {shortlist.length > 0 ? (
+          <div className="info-panel" style={{ marginTop: 20 }}>
+            <h3>Shortlist</h3>
+            <div className="metrics-grid" style={{ marginTop: 14 }}>
+              {shortlist.map((rec, idx) => (
+                <button
+                  key={`${rec.fixtureId}-${rec.market}-shortlist`}
+                  onClick={() => setSelectedFixtureId(String(rec.fixtureId))}
+                  className="metric-pill"
+                  style={{ textAlign: 'left', cursor: 'pointer' }}
+                >
+                  <div className="metric-pill-label">#{idx + 1} · {formatMarket(rec.market)}</div>
+                  <div className="metric-pill-value">{rec.match}</div>
+                  <div className="section-subtitle" style={{ marginTop: 8 }}>
+                    EV {pct(rec.expectedValue)} · {confidenceBand(rec.confidence)}
+                  </div>
+                </button>
+              ))}
+            </div>
           </div>
         ) : null}
 
