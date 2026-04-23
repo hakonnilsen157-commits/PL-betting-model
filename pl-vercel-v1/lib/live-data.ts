@@ -11,6 +11,7 @@ const MAX_FIXTURES = Number(process.env.MAX_FIXTURES ?? '10');
 const FOOTBALL_DATA_COMPETITION = process.env.FOOTBALL_DATA_COMPETITION ?? 'PL';
 const STANDINGS_CACHE_TTL_MS = 90 * 1000;
 const FORM_CACHE_TTL_MS = 90 * 1000;
+const STALE_FIXTURE_BUFFER_MS = 3 * 60 * 60 * 1000;
 
 type OddsApiOutcome = { name: string; price: number; point?: number };
 type OddsApiMarket = { key: string; outcomes: OddsApiOutcome[] };
@@ -172,6 +173,13 @@ function parseTotals(bookmaker?: OddsApiBookmaker) {
   const over = outcomes.find((o) => o.name.toLowerCase() === 'over' && Number(o.point) === 2.5);
   const under = outcomes.find((o) => o.name.toLowerCase() === 'under' && Number(o.point) === 2.5);
   return { over2_5: over?.price ?? 1.95, under2_5: under?.price ?? 1.95 };
+}
+
+function isUpcomingKickoff(kickoff: string | undefined) {
+  if (!kickoff) return false;
+  const ts = new Date(kickoff).getTime();
+  if (Number.isNaN(ts)) return false;
+  return ts >= Date.now() - STALE_FIXTURE_BUFFER_MS;
 }
 
 async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
@@ -488,7 +496,7 @@ function fallbackFixturesFromStandings(standingsMap: Map<string, TeamContext>) {
     fixtures.push({
       id: `fallback-${home.teamId ?? home.teamName}-${away.teamId ?? away.teamName}`,
       round: 34,
-      kickoff: new Date().toISOString(),
+      kickoff: new Date(Date.now() + (i + 1) * 60 * 60 * 1000).toISOString(),
       homeTeam: home.teamName,
       awayTeam: away.teamName,
       daysRestHome: 6,
@@ -546,10 +554,24 @@ function buildModelOddsFromContext(
 
 function buildFallbackFromMock(round?: number) {
   const selectedRound = round ?? 34;
+  const now = Date.now();
+  const fixtures = getRoundFixtures(selectedRound)
+    .filter((fixture) => isUpcomingKickoff(fixture.kickoff))
+    .map((fixture, index) => ({
+      ...fixture,
+      kickoff: isUpcomingKickoff(fixture.kickoff)
+        ? fixture.kickoff
+        : new Date(now + (index + 1) * 60 * 60 * 1000).toISOString(),
+    }));
+
+  const recommendations = getRoundRecommendations(selectedRound).filter((rec) =>
+    fixtures.some((fixture) => String(fixture.id) === String(rec.fixtureId))
+  );
+
   return {
     round: selectedRound,
-    fixtures: getRoundFixtures(selectedRound),
-    recommendations: getRoundRecommendations(selectedRound),
+    fixtures,
+    recommendations,
     source: 'mock-fallback',
     generatedAt: new Date().toISOString(),
   };
@@ -558,10 +580,15 @@ function buildFallbackFromMock(round?: number) {
 export async function getLiveDashboard(round?: number) {
   if (!isLiveMode()) {
     const selectedRound = round ?? 34;
+    const baseFixtures = getRoundFixtures(selectedRound).filter((fixture) => isUpcomingKickoff(fixture.kickoff));
+    const baseRecommendations = getRoundRecommendations(selectedRound).filter((rec) =>
+      baseFixtures.some((fixture) => String(fixture.id) === String(rec.fixtureId))
+    );
+
     return {
       round: selectedRound,
-      fixtures: getRoundFixtures(selectedRound),
-      recommendations: getRoundRecommendations(selectedRound),
+      fixtures: baseFixtures,
+      recommendations: baseRecommendations,
       source: 'mock',
       generatedAt: new Date().toISOString(),
       debug: { mode: 'mock' },
@@ -595,9 +622,11 @@ export async function getLiveDashboard(round?: number) {
     };
   }
 
+  const filteredLiveOdds = liveOdds.filter((event) => isUpcomingKickoff(event.commence_time));
+
   const fixtureSeed =
-    liveOdds.length > 0
-      ? liveOdds.map((e) => ({
+    filteredLiveOdds.length > 0
+      ? filteredLiveOdds.map((e) => ({
           homeTeam: e.home_team,
           awayTeam: e.away_team,
         }))
@@ -617,8 +646,8 @@ export async function getLiveDashboard(round?: number) {
   const mappedOdds: OddsLine[] = [];
   const skippedNoH2H: Array<{ home: string; away: string; bookmaker?: string }> = [];
 
-  if (liveOdds.length > 0) {
-    for (const event of liveOdds.slice(0, MAX_FIXTURES)) {
+  if (filteredLiveOdds.length > 0) {
+    for (const event of filteredLiveOdds.slice(0, MAX_FIXTURES)) {
       const homeTeam = normalizeTeamName(event.home_team);
       const awayTeam = normalizeTeamName(event.away_team);
       const bookmaker = event.bookmakers?.[0];
@@ -662,7 +691,9 @@ export async function getLiveDashboard(round?: number) {
       });
     }
   } else {
-    const fallbackFixtures = fallbackFixturesFromStandings(standingsMap).slice(0, MAX_FIXTURES);
+    const fallbackFixtures = fallbackFixturesFromStandings(standingsMap)
+      .filter((fixture) => isUpcomingKickoff(fixture.kickoff))
+      .slice(0, MAX_FIXTURES);
 
     for (const fixture of fallbackFixtures) {
       mappedFixtures.push(fixture);
@@ -693,7 +724,7 @@ export async function getLiveDashboard(round?: number) {
     generatedAt: new Date().toISOString(),
     debug: {
       mode: oddsOk ? 'live' : 'partial-live',
-      liveOddsCount: liveOdds.length,
+      liveOddsCount: filteredLiveOdds.length,
       standingsCount: standingsMap.size,
       recentFormTeamsCount: Array.from(standingsMap.values()).filter((x) => !!x.form).length,
       oddsAvailable: oddsOk,
