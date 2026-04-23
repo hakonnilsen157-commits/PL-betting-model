@@ -73,12 +73,27 @@ type FootballDataMatchesResponse = {
   matches?: FootballDataMatch[];
 };
 
+type RecentMatchSummary = {
+  opponent: string;
+  venue: 'H' | 'A';
+  result: 'W' | 'D' | 'L';
+  kickoff: string;
+};
+
+type TeamRecentData = {
+  form?: string;
+  recentMatches?: RecentMatchSummary[];
+  formScore?: number;
+};
+
 type TeamContext = {
   teamId?: number;
   teamName: string;
   rank?: number;
   points?: number;
   form?: string;
+  formScore?: number;
+  recentMatches?: RecentMatchSummary[];
   goalsFor?: number;
   goalsAgainst?: number;
   played?: number;
@@ -106,13 +121,13 @@ type CachedValue<T> = {
 
 type RuntimeCache = {
   standings?: CachedValue<Map<string, TeamContext>>;
-  teamForm?: Map<number, CachedValue<string>>;
+  teamForm?: Map<number, CachedValue<TeamRecentData>>;
 };
 
 const runtimeCache = globalThis as typeof globalThis & { __plBettingCache?: RuntimeCache };
 if (!runtimeCache.__plBettingCache) {
   runtimeCache.__plBettingCache = {
-    teamForm: new Map<number, CachedValue<string>>(),
+    teamForm: new Map<number, CachedValue<TeamRecentData>>(),
   };
 }
 
@@ -222,7 +237,45 @@ function resultLetterForTeam(teamId: number, match: FootballDataMatch): 'W' | 'D
   return null;
 }
 
-async function fetchRecentFormForTeam(teamId: number): Promise<string | undefined> {
+function formScoreFromString(form?: string) {
+  if (!form) return undefined;
+  return [...form].reduce((sum, char) => {
+    if (char === 'W') return sum + 3;
+    if (char === 'D') return sum + 1;
+    return sum;
+  }, 0);
+}
+
+function summarizeRecentMatches(teamId: number, matches: FootballDataMatch[]): TeamRecentData {
+  const recentMatches = matches
+    .map((match) => {
+      const result = resultLetterForTeam(teamId, match);
+      if (!result) return null;
+      const isHome = match.homeTeam.id === teamId;
+      const opponentName = isHome
+        ? match.awayTeam.shortName || match.awayTeam.name
+        : match.homeTeam.shortName || match.homeTeam.name;
+
+      return {
+        opponent: normalizeTeamName(opponentName),
+        venue: isHome ? 'H' : 'A',
+        result,
+        kickoff: match.utcDate,
+      } as RecentMatchSummary;
+    })
+    .filter((x): x is RecentMatchSummary => x !== null)
+    .slice(0, 5);
+
+  const form = recentMatches.map((m) => m.result).join('') || undefined;
+
+  return {
+    form,
+    recentMatches,
+    formScore: formScoreFromString(form),
+  };
+}
+
+async function fetchRecentDataForTeam(teamId: number): Promise<TeamRecentData | undefined> {
   const cache = getCache();
   const cached = cache.teamForm?.get(teamId);
   if (cached && isFresh(cached.timestamp, FORM_CACHE_TTL_MS)) {
@@ -237,20 +290,13 @@ async function fetchRecentFormForTeam(teamId: number): Promise<string | undefine
     const matches = data.matches ?? [];
     if (!matches.length) return cached?.value;
 
-    const form = matches
-      .map((match) => resultLetterForTeam(teamId, match))
-      .filter((x): x is 'W' | 'D' | 'L' => x !== null)
-      .slice(0, 5)
-      .join('');
+    const recent = summarizeRecentMatches(teamId, matches);
+    cache.teamForm?.set(teamId, {
+      value: recent,
+      timestamp: Date.now(),
+    });
 
-    if (form) {
-      cache.teamForm?.set(teamId, {
-        value: form,
-        timestamp: Date.now(),
-      });
-    }
-
-    return form || cached?.value;
+    return recent;
   } catch {
     return cached?.value;
   }
@@ -374,12 +420,14 @@ async function enrichRecentFormForRelevantTeams(
     const ctx = next.get(teamName);
     if (!ctx?.teamId) continue;
 
-    const form = await fetchRecentFormForTeam(ctx.teamId);
-    if (!form) continue;
+    const recent = await fetchRecentDataForTeam(ctx.teamId);
+    if (!recent) continue;
 
     next.set(teamName, {
       ...ctx,
-      form,
+      form: recent.form ?? ctx.form,
+      formScore: recent.formScore,
+      recentMatches: recent.recentMatches,
     });
   }
 
@@ -414,8 +462,7 @@ async function fetchLiveOddsSafe(): Promise<{
     return { events, ok: true };
   } catch (error) {
     return {
-      events: [],
-      ok: false,
+      events: [], ok: false,
       error: error instanceof Error ? error.message : 'Unknown odds error',
     };
   }
