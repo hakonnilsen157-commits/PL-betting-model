@@ -101,15 +101,20 @@ function formatMarket(market?: string) {
   return map[market] ?? market;
 }
 
-function formLabel(form?: string) {
-  if (!form) return 'Ikke tilgjengelig';
-  return form;
+function describeForm(form?: string) {
+  if (!form) return 'ukjent form';
+  const wins = [...form].filter((x) => x === 'W').length;
+  const losses = [...form].filter((x) => x === 'L').length;
+
+  if (wins >= 3 && losses === 0) return `sterk form (${form})`;
+  if (wins >= 3) return `god form (${form})`;
+  if (losses >= 3) return `svak form (${form})`;
+  return `blandet form (${form})`;
 }
 
-function buildPreviewText(fixture: FixtureCard, rec?: Recommendation) {
+function buildPreviewText(fixture: FixtureCard, rec?: Recommendation, source?: string) {
   const home = fixture.homeContext;
   const away = fixture.awayContext;
-
   const parts: string[] = [];
 
   if (home?.rank && away?.rank) {
@@ -120,35 +125,54 @@ function buildPreviewText(fixture: FixtureCard, rec?: Recommendation) {
 
   if (home?.form || away?.form) {
     parts.push(
-      `${fixture.homeTeam} har formlinje ${formLabel(home?.form)}, mens ${fixture.awayTeam} kommer inn med ${formLabel(away?.form)}.`
+      `${fixture.homeTeam} kommer inn i ${describeForm(home?.form)}, mens ${fixture.awayTeam} møter opp med ${describeForm(away?.form)}.`
+    );
+  }
+
+  if (
+    home?.homeWins !== undefined &&
+    home?.homeDraws !== undefined &&
+    home?.homeLosses !== undefined &&
+    away?.awayWins !== undefined &&
+    away?.awayDraws !== undefined &&
+    away?.awayLosses !== undefined
+  ) {
+    parts.push(
+      `${fixture.homeTeam} har hjemmeprofil ${home.homeWins}-${home.homeDraws}-${home.homeLosses}, mens ${fixture.awayTeam} står med bortestatistikk ${away.awayWins}-${away.awayDraws}-${away.awayLosses}.`
     );
   }
 
   if (home?.goalsFor !== undefined && away?.goalsFor !== undefined) {
     parts.push(
-      `${fixture.homeTeam} står med ${home.goalsFor} scorede mål så langt, mens ${fixture.awayTeam} har scoret ${away.goalsFor}.`
+      `${fixture.homeTeam} har scoret ${home.goalsFor} mål denne sesongen, mens ${fixture.awayTeam} står med ${away.goalsFor}.`
     );
   }
 
   if (rec?.market === 'home') {
     parts.push(
-      `Modellen heller mot hjemmelaget fordi kombinasjonen av hjemmebane, pris i markedet og total kampkontekst peker svakt i ${fixture.homeTeam}s favør.`
+      `Modellen heller mot hjemmelaget fordi kombinasjonen av hjemmefordel, kampkontekst og pris i markedet fortsatt peker svakt i ${fixture.homeTeam}s favør.`
     );
   } else if (rec?.market === 'away') {
     parts.push(
-      `Modellen heller mot bortelaget fordi oddsen ser litt for høy ut relativt til den sannsynligheten modellen gir ${fixture.awayTeam}.`
+      `Modellen heller mot bortelaget fordi oddsen fortsatt ser litt høy ut relativt til sannsynligheten modellen gir ${fixture.awayTeam}.`
     );
   } else if (rec?.market === 'draw') {
     parts.push(
-      `Sannsynlighetsbildet fremstår jevnt nok til at uavgjort fremstår som et mer interessant utfall enn markedet tilsier.`
+      `Sannsynlighetsbildet ser jevnt ut, og derfor fremstår uavgjort mer interessant enn markedet antyder ved første øyekast.`
     );
   } else if (rec?.market === 'over2_5') {
     parts.push(
-      `Kampbildet vurderes som åpent nok til at over 2.5 mål kan være bedre priset enn markedet tilsier.`
+      `Kampbildet vurderes som åpent nok til at over 2.5 mål kan være litt bedre priset enn markedet tilsier.`
     );
   } else if (rec?.market === 'under2_5') {
     parts.push(
-      `Modellen ser dette som en kamp som kan bli strammere enn det oddsbildet antyder.`
+      `Modellen leser dette som en kamp som kan bli strammere enn det oddsbildet antyder.`
+    );
+  }
+
+  if (source === 'partial-live') {
+    parts.push(
+      `Live-odds er midlertidig delvis utilgjengelige, så analysen støtter seg ekstra mye på tabell, form og lagprofil akkurat nå.`
     );
   }
 
@@ -184,13 +208,13 @@ function buildWhyThisPick(fixture: FixtureCard, rec?: Recommendation) {
 
   if (home?.form && away?.form) {
     lines.push(
-      `Formmessig kommer ${fixture.homeTeam} inn med ${home.form}, mens ${fixture.awayTeam} står med ${away.form}. Dette brukes som en del av kampkonteksten i vurderingen.`
+      `${fixture.homeTeam} kommer inn med ${home.form}, mens ${fixture.awayTeam} står med ${away.form}. Den nylige formen brukes som en del av kampkonteksten i vurderingen.`
     );
   }
 
   if (home?.rank && away?.rank) {
     lines.push(
-      `Tabellmessig ligger ${fixture.homeTeam} på plass ${home.rank}, mens ${fixture.awayTeam} ligger på plass ${away.rank}. Det gir modellen et bedre grunnlag for å tolke prisbildet.`
+      `Tabellmessig ligger ${fixture.homeTeam} på plass ${home.rank}, mens ${fixture.awayTeam} ligger på plass ${away.rank}. Det gjør det lettere å tolke om oddsen ser høy eller lav ut.`
     );
   }
 
@@ -215,7 +239,7 @@ function buildWhyThisPick(fixture: FixtureCard, rec?: Recommendation) {
   return lines.slice(0, 5);
 }
 
-function buildRiskSection(fixture: FixtureCard, rec?: Recommendation) {
+function buildRiskSection(fixture: FixtureCard, rec?: Recommendation, source?: string) {
   const risks: string[] = [];
   if (!rec) return risks;
 
@@ -243,6 +267,12 @@ function buildRiskSection(fixture: FixtureCard, rec?: Recommendation) {
     );
   }
 
+  if (source === 'partial-live') {
+    risks.push(
+      `Noen odds kommer fra fallback-modell i stedet for live bookmaker-feed akkurat nå, så prisbildet bør tolkes litt mer forsiktig.`
+    );
+  }
+
   risks.push(
     `Spillerform, dommerprofil og full skadeanalyse er fortsatt ikke komplett modellert, så previewen er ikke fullt ut “redaksjonell” enda.`
   );
@@ -263,7 +293,7 @@ function buildTeamAngles(ctx: TeamContext | undefined, side: 'home' | 'away') {
   }
 
   if (ctx.form) {
-    lines.push(`Form siste kamper: ${ctx.form}`);
+    lines.push(`Form siste 5: ${ctx.form}`);
   }
 
   if (ctx.goalsFor !== undefined && ctx.goalsAgainst !== undefined) {
@@ -290,9 +320,11 @@ function buildTeamAngles(ctx: TeamContext | undefined, side: 'home' | 'away') {
 export default function MatchDetailPanel({
   fixture,
   recommendations,
+  source,
 }: {
   fixture: FixtureCard | null;
   recommendations: Recommendation[];
+  source?: string;
 }) {
   if (!fixture) {
     return (
@@ -308,10 +340,10 @@ export default function MatchDetailPanel({
 
   const topRecommendation = recommendations[0] ?? fixture.topRecommendation;
   const why = buildWhyThisPick(fixture, topRecommendation);
-  const risks = buildRiskSection(fixture, topRecommendation);
+  const risks = buildRiskSection(fixture, topRecommendation, source);
   const homeAngles = buildTeamAngles(fixture.homeContext, 'home');
   const awayAngles = buildTeamAngles(fixture.awayContext, 'away');
-  const preview = buildPreviewText(fixture, topRecommendation);
+  const preview = buildPreviewText(fixture, topRecommendation, source);
 
   return (
     <section className="detail-card">
