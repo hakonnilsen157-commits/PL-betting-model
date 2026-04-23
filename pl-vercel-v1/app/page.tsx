@@ -80,6 +80,7 @@ type DashboardResponse = {
     oddsAvailable?: boolean;
     usingFallbackOdds?: boolean;
     oddsError?: string | null;
+    footballDataAvailable?: boolean;
   };
 };
 
@@ -127,7 +128,16 @@ function sourceLabel(source?: string) {
   if (source === 'partial-live') return 'Partial live';
   if (source === 'live') return 'Live';
   if (source === 'mock') return 'Mock';
+  if (source === 'mock-fallback') return 'Mock fallback';
   return source ?? '–';
+}
+
+function oddsSourceLabel(bookmaker?: string) {
+  if (!bookmaker) return '–';
+  if (bookmaker.toLowerCase().includes('fallback') || bookmaker.toLowerCase().includes('model')) {
+    return 'Modellodds';
+  }
+  return bookmaker;
 }
 
 export default function Page() {
@@ -234,8 +244,8 @@ export default function Page() {
           <div className="info-panel" style={{ marginTop: 20 }}>
             <h3>Live-kilde delvis tilgjengelig</h3>
             <p>
-              Oddsleverandøren er midlertidig utilgjengelig, så appen viser fortsatt kampkontekst,
-              tabell og form, men bruker fallback-odds der det trengs.
+              Lagdata, tabell og form er live, men oddsleverandøren er midlertidig utilgjengelig.
+              Derfor vises modellbaserte fallback-odds i stedet for ekte bookmaker-odds akkurat nå.
             </p>
           </div>
         ) : null}
@@ -367,6 +377,7 @@ export default function Page() {
             <div className="item-list">
               {(data?.fixtures ?? []).map((fixture) => {
                 const active = String(selectedFixture?.id) === String(fixture.id);
+                const usingModelOdds = fixture.latestOdds?.bookmaker?.toLowerCase().includes('model');
 
                 return (
                   <button
@@ -400,12 +411,18 @@ export default function Page() {
                         </div>
                       </div>
                       <div className="metric-pill">
-                        <div className="metric-pill-label">Bookmaker</div>
+                        <div className="metric-pill-label">Oddsgrunnlag</div>
                         <div className="metric-pill-value">
-                          {fixture.latestOdds?.bookmaker ?? '–'}
+                          {oddsSourceLabel(fixture.latestOdds?.bookmaker)}
                         </div>
                       </div>
                     </div>
+
+                    {usingModelOdds ? (
+                      <div className="section-subtitle" style={{ marginTop: 10 }}>
+                        Viser modellodds fordi live bookmaker-feed er utilgjengelig akkurat nå.
+                      </div>
+                    ) : null}
                   </button>
                 );
               })}
