@@ -24,6 +24,7 @@ type TeamContext = {
   rank?: number;
   points?: number;
   form?: string;
+  formScore?: number;
   goalsFor?: number;
   goalsAgainst?: number;
   played?: number;
@@ -138,6 +139,39 @@ function oddsSourceLabel(bookmaker?: string) {
     return 'Modellodds';
   }
   return bookmaker;
+}
+
+function confidenceBand(confidence?: number) {
+  if (typeof confidence !== 'number') return 'Moderat signal';
+  if (confidence >= 65) return 'Sterkest signal';
+  if (confidence >= 55) return 'Godt signal';
+  if (confidence >= 45) return 'Moderat signal';
+  return 'Svakt signal';
+}
+
+function buildRecommendationSummary(rec: Recommendation) {
+  const edgeText = pct(rec.edge);
+  const evText = pct(rec.expectedValue);
+  if (rec.edge >= 0.04) {
+    return `Sterkere verdi-case med ${edgeText} edge og ${evText} EV. Markedet ser fortsatt litt for høyt priset ut.`;
+  }
+  if (rec.edge > 0) {
+    return `Kontrollert verdi-case med ${edgeText} edge. Ikke ekstremt, men interessant nok til å vurderes nærmere.`;
+  }
+  return `Mer balansert case uten tydelig verdi akkurat nå.`;
+}
+
+function buildFixtureVerdict(fixture: FixtureCard) {
+  const rec = fixture.topRecommendation;
+  if (!rec) return 'Ingen tydelig lean';
+  const market = formatMarket(rec.market);
+  if ((rec.expectedValue ?? 0) >= 0.08 && (rec.confidence ?? 0) >= 60) {
+    return `Sterk lean: ${market}`;
+  }
+  if ((rec.expectedValue ?? 0) >= 0.04) {
+    return `Lean: ${market}`;
+  }
+  return `Svak lean: ${market}`;
 }
 
 export default function Page() {
@@ -336,9 +370,13 @@ export default function Page() {
                       <div>
                         <div className="rec-rank">#{idx + 1}</div>
                         <h3 className="match-name">{rec.match}</h3>
-                        <div className="market-name">{formatMarket(rec.market)}</div>
+                        <div className="market-name">{formatMarket(rec.market)} · {confidenceBand(rec.confidence)}</div>
                       </div>
                       <div className="ev-pill">EV {pct(rec.expectedValue)}</div>
+                    </div>
+
+                    <div className="section-subtitle" style={{ marginTop: 10 }}>
+                      {buildRecommendationSummary(rec)}
                     </div>
 
                     <div className="metrics-grid">
@@ -395,6 +433,10 @@ export default function Page() {
                       <div className="badge-soft">
                         {formatMarket(fixture.topRecommendation?.market)}
                       </div>
+                    </div>
+
+                    <div className="section-subtitle" style={{ marginTop: 10 }}>
+                      {buildFixtureVerdict(fixture)}
                     </div>
 
                     <div className="metrics-grid three">
