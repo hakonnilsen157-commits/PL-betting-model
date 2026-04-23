@@ -206,7 +206,11 @@ async function fetchRecentFormForTeam(teamId: number): Promise<string | undefine
   }
 }
 
-async function fetchStandingsMap(): Promise<Map<string, TeamContext>> {
+async function fetchStandingsMap(): Promise<{
+  map: Map<string, TeamContext>;
+  ok: boolean;
+  error?: string;
+}> {
   try {
     const data = await fetchFootballDataJson<FootballDataStandingsResponse>(
       `/competitions/${FOOTBALL_DATA_COMPETITION}/standings`
@@ -268,9 +272,13 @@ async function fetchStandingsMap(): Promise<Map<string, TeamContext>> {
       });
     }
 
-    return map;
-  } catch {
-    return new Map();
+    return { map, ok: true };
+  } catch (error) {
+    return {
+      map: new Map(),
+      ok: false,
+      error: error instanceof Error ? error.message : 'Unknown football-data error',
+    };
   }
 }
 
@@ -413,6 +421,17 @@ function buildModelOddsFromContext(
   };
 }
 
+function buildFallbackFromMock(round?: number) {
+  const selectedRound = round ?? 34;
+  return {
+    round: selectedRound,
+    fixtures: getRoundFixtures(selectedRound),
+    recommendations: getRoundRecommendations(selectedRound),
+    source: 'mock-fallback',
+    generatedAt: new Date().toISOString(),
+  };
+}
+
 export async function getLiveDashboard(round?: number) {
   if (!isLiveMode()) {
     const selectedRound = round ?? 34;
@@ -427,7 +446,29 @@ export async function getLiveDashboard(round?: number) {
   }
 
   const { events: liveOdds, ok: oddsOk, error: oddsError } = await fetchLiveOddsSafe();
-  const baseStandingsMap = await fetchStandingsMap();
+  const standingsResult = await fetchStandingsMap();
+  const baseStandingsMap = standingsResult.map;
+
+  if (!oddsOk && !standingsResult.ok) {
+    const mock = buildFallbackFromMock(round);
+    return {
+      ...mock,
+      debug: {
+        mode: 'mock-fallback',
+        liveOddsCount: 0,
+        standingsCount: 0,
+        recentFormTeamsCount: 0,
+        oddsAvailable: false,
+        oddsError: oddsError ?? null,
+        footballDataAvailable: false,
+        footballDataError: standingsResult.error ?? null,
+        usingFallbackOdds: true,
+        usingMockFallback: true,
+        firstFixture: mock.fixtures[0] ?? null,
+        skippedNoH2H: [],
+      },
+    };
+  }
 
   const fixtureSeed =
     liveOdds.length > 0
@@ -532,7 +573,10 @@ export async function getLiveDashboard(round?: number) {
       recentFormTeamsCount: Array.from(standingsMap.values()).filter((x) => !!x.form).length,
       oddsAvailable: oddsOk,
       oddsError: oddsError ?? null,
+      footballDataAvailable: standingsResult.ok,
+      footballDataError: standingsResult.error ?? null,
       usingFallbackOdds: !oddsOk,
+      usingMockFallback: false,
       firstFixture: fixtureCards[0]
         ? {
             homeTeam: fixtureCards[0].homeTeam,
