@@ -129,7 +129,7 @@ function parseTotals(bookmaker?: OddsApiBookmaker) {
   const outcomes = bookmaker?.markets.find((m) => m.key === 'totals')?.outcomes ?? [];
   const over = outcomes.find((o) => o.name.toLowerCase() === 'over' && Number(o.point) === 2.5);
   const under = outcomes.find((o) => o.name.toLowerCase() === 'under' && Number(o.point) === 2.5);
-  return { over2_5: over?.price, under2_5: under?.price };
+  return { over2_5: over?.price ?? 1.95, under2_5: under?.price ?? 1.95 };
 }
 
 async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
