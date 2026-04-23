@@ -174,6 +174,28 @@ function buildFixtureVerdict(fixture: FixtureCard) {
   return `Svak lean: ${market}`;
 }
 
+function computeTeamStrength(ctx?: TeamContext, side?: 'home' | 'away') {
+  if (!ctx) return 50;
+  const pointsBase = typeof ctx.points === 'number' ? Math.min(ctx.points / 0.9, 100) : 50;
+  const formBase = typeof ctx.formScore === 'number' ? (ctx.formScore / 15) * 100 : 50;
+  const goalDiff = typeof ctx.goalsFor === 'number' && typeof ctx.goalsAgainst === 'number'
+    ? Math.max(0, Math.min(100, 50 + (ctx.goalsFor - ctx.goalsAgainst) * 2))
+    : 50;
+  const sideWins = side === 'home' ? ctx.homeWins : ctx.awayWins;
+  const sidePlayed = side === 'home' ? ctx.homePlayed : ctx.awayPlayed;
+  const sideBase = typeof sideWins === 'number' && typeof sidePlayed === 'number' && sidePlayed > 0
+    ? (sideWins / sidePlayed) * 100
+    : 50;
+  return Math.round(pointsBase * 0.35 + formBase * 0.3 + goalDiff * 0.2 + sideBase * 0.15);
+}
+
+function strengthLabel(score: number) {
+  if (score >= 72) return 'Sterk';
+  if (score >= 58) return 'Solid';
+  if (score >= 45) return 'Jevn';
+  return 'Svakere';
+}
+
 export default function Page() {
   const [data, setData] = useState<DashboardResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -244,6 +266,11 @@ export default function Page() {
     ? Math.max(...filteredRecommendations.map((r) => r.expectedValue))
     : 0;
 
+  const bestRecommendation = useMemo(() => {
+    if (!filteredRecommendations.length) return null;
+    return [...filteredRecommendations].sort((a, b) => b.expectedValue - a.expectedValue || b.confidence - a.confidence)[0];
+  }, [filteredRecommendations]);
+
   if (loading) {
     return (
       <main className="dashboard-shell">
@@ -281,6 +308,16 @@ export default function Page() {
               Lagdata, tabell og form er live, men oddsleverandøren er midlertidig utilgjengelig.
               Derfor vises modellbaserte fallback-odds i stedet for ekte bookmaker-odds akkurat nå.
             </p>
+          </div>
+        ) : null}
+
+        {bestRecommendation ? (
+          <div className="info-panel" style={{ marginTop: 20 }}>
+            <h3>Best bet this round</h3>
+            <p>
+              <strong>{bestRecommendation.match}</strong> · {formatMarket(bestRecommendation.market)} · EV {pct(bestRecommendation.expectedValue)} · {confidenceBand(bestRecommendation.confidence)}.
+            </p>
+            <p>{buildRecommendationSummary(bestRecommendation)}</p>
           </div>
         ) : null}
 
@@ -416,6 +453,9 @@ export default function Page() {
               {(data?.fixtures ?? []).map((fixture) => {
                 const active = String(selectedFixture?.id) === String(fixture.id);
                 const usingModelOdds = fixture.latestOdds?.bookmaker?.toLowerCase().includes('model');
+                const homeStrength = computeTeamStrength(fixture.homeContext, 'home');
+                const awayStrength = computeTeamStrength(fixture.awayContext, 'away');
+                const strengthDiff = homeStrength - awayStrength;
 
                 return (
                   <button
@@ -458,6 +498,25 @@ export default function Page() {
                           {oddsSourceLabel(fixture.latestOdds?.bookmaker)}
                         </div>
                       </div>
+                    </div>
+
+                    <div className="metrics-grid" style={{ marginTop: 10 }}>
+                      <div className="metric-pill">
+                        <div className="metric-pill-label">{fixture.homeTeam}</div>
+                        <div className="metric-pill-value">{homeStrength}/100 · {strengthLabel(homeStrength)}</div>
+                      </div>
+                      <div className="metric-pill">
+                        <div className="metric-pill-label">{fixture.awayTeam}</div>
+                        <div className="metric-pill-value">{awayStrength}/100 · {strengthLabel(awayStrength)}</div>
+                      </div>
+                    </div>
+
+                    <div className="section-subtitle" style={{ marginTop: 10 }}>
+                      {strengthDiff >= 8
+                        ? `${fixture.homeTeam} har et tydeligere grunnsignal i totalbildet.`
+                        : strengthDiff <= -8
+                        ? `${fixture.awayTeam} ser sterkere ut i totalbildet før pris vurderes.`
+                        : 'Lagene fremstår ganske jevne i styrkeprofilen.'}
                     </div>
 
                     {usingModelOdds ? (
