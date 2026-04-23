@@ -36,7 +36,6 @@ type FootballDataStandingRow = {
   points?: number;
   goalsFor?: number;
   goalsAgainst?: number;
-  goalDifference?: number;
 };
 
 type FootballDataStandingsResponse = {
@@ -64,10 +63,6 @@ type FootballDataMatch = {
     tla?: string;
   };
   score?: {
-    fullTime?: {
-      home?: number | null;
-      away?: number | null;
-    };
     winner?: 'HOME_TEAM' | 'AWAY_TEAM' | 'DRAW' | null;
   };
 };
@@ -134,7 +129,7 @@ function parseTotals(bookmaker?: OddsApiBookmaker) {
   const outcomes = bookmaker?.markets.find((m) => m.key === 'totals')?.outcomes ?? [];
   const over = outcomes.find((o) => o.name.toLowerCase() === 'over' && Number(o.point) === 2.5);
   const under = outcomes.find((o) => o.name.toLowerCase() === 'under' && Number(o.point) === 2.5);
-  return { over2_5: over?.price ?? 1.95, under2_5: under?.price ?? 1.95 };
+  return { over2_5: over?.price, under2_5: under?.price };
 }
 
 async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
@@ -149,7 +144,7 @@ async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
 
   if (!response.ok) {
     const text = await response.text();
-    throw new Error(`Request failed ${response.status}: ${text.slice(0, 400)}`);
+    throw new Error(`Request failed ${response.status}: ${text.slice(0, 500)}`);
   }
 
   return response.json() as Promise<T>;
@@ -222,11 +217,8 @@ async function fetchStandingsMap(): Promise<Map<string, TeamContext>> {
       data.standings?.[0]?.table ??
       [];
 
-    const homeTable =
-      data.standings?.find((s) => s.type === 'HOME')?.table ?? [];
-
-    const awayTable =
-      data.standings?.find((s) => s.type === 'AWAY')?.table ?? [];
+    const homeTable = data.standings?.find((s) => s.type === 'HOME')?.table ?? [];
+    const awayTable = data.standings?.find((s) => s.type === 'AWAY')?.table ?? [];
 
     const homeMap = new Map<number, FootballDataStandingRow>();
     const awayMap = new Map<number, FootballDataStandingRow>();
@@ -234,6 +226,7 @@ async function fetchStandingsMap(): Promise<Map<string, TeamContext>> {
     for (const row of homeTable) {
       if (row.team?.id) homeMap.set(row.team.id, row);
     }
+
     for (const row of awayTable) {
       if (row.team?.id) awayMap.set(row.team.id, row);
     }
@@ -283,14 +276,14 @@ async function fetchStandingsMap(): Promise<Map<string, TeamContext>> {
 
 async function enrichRecentFormForRelevantTeams(
   standingsMap: Map<string, TeamContext>,
-  liveOdds: OddsApiEvent[]
+  fixturesSource: Array<{ homeTeam: string; awayTeam: string }>
 ): Promise<Map<string, TeamContext>> {
   const next = new Map(standingsMap);
 
   const relevantNames = new Set<string>();
-  for (const event of liveOdds) {
-    relevantNames.add(normalizeTeamName(event.home_team));
-    relevantNames.add(normalizeTeamName(event.away_team));
+  for (const fixture of fixturesSource) {
+    relevantNames.add(normalizeTeamName(fixture.homeTeam));
+    relevantNames.add(normalizeTeamName(fixture.awayTeam));
   }
 
   for (const teamName of relevantNames) {
@@ -309,20 +302,115 @@ async function enrichRecentFormForRelevantTeams(
   return next;
 }
 
-export async function fetchLiveOdds(): Promise<OddsApiEvent[]> {
-  if (!process.env.ODDS_API_KEY) throw new Error('Missing ODDS_API_KEY');
+async function fetchLiveOddsSafe(): Promise<{
+  events: OddsApiEvent[];
+  ok: boolean;
+  error?: string;
+}> {
+  try {
+    const apiKey = process.env.ODDS_API_KEY;
+    if (!apiKey) {
+      return { events: [], ok: false, error: 'Missing ODDS_API_KEY' };
+    }
 
-  const qs = new URLSearchParams({
-    apiKey: process.env.ODDS_API_KEY,
-    regions: ODDS_REGIONS,
-    markets: 'h2h,totals',
-    oddsFormat: 'decimal',
-    dateFormat: 'iso',
-  });
+    const qs = new URLSearchParams({
+      apiKey,
+      regions: ODDS_REGIONS,
+      markets: 'h2h,totals',
+      oddsFormat: 'decimal',
+      dateFormat: 'iso',
+    });
 
-  if (ODDS_BOOKMAKERS) qs.set('bookmakers', ODDS_BOOKMAKERS);
+    if (ODDS_BOOKMAKERS) qs.set('bookmakers', ODDS_BOOKMAKERS);
 
-  return fetchJson<OddsApiEvent[]>(`${ODDS_BASE}/sports/${SPORT_KEY}/odds?${qs.toString()}`);
+    const events = await fetchJson<OddsApiEvent[]>(
+      `${ODDS_BASE}/sports/${SPORT_KEY}/odds?${qs.toString()}`
+    );
+
+    return { events, ok: true };
+  } catch (error) {
+    return {
+      events: [],
+      ok: false,
+      error: error instanceof Error ? error.message : 'Unknown odds error',
+    };
+  }
+}
+
+function fallbackFixturesFromStandings(standingsMap: Map<string, TeamContext>) {
+  const teams = Array.from(standingsMap.values())
+    .sort((a, b) => (a.rank ?? 999) - (b.rank ?? 999))
+    .slice(0, 10);
+
+  const fixtures: Array<
+    MatchFixture & {
+      homeContext?: TeamContext;
+      awayContext?: TeamContext;
+    }
+  > = [];
+
+  for (let i = 0; i < teams.length - 1; i += 2) {
+    const home = teams[i];
+    const away = teams[i + 1];
+    if (!home || !away) continue;
+
+    fixtures.push({
+      id: `fallback-${home.teamId ?? home.teamName}-${away.teamId ?? away.teamName}`,
+      round: 34,
+      kickoff: new Date().toISOString(),
+      homeTeam: home.teamName,
+      awayTeam: away.teamName,
+      daysRestHome: 6,
+      daysRestAway: 6,
+      injuriesHome: 0,
+      injuriesAway: 0,
+      homeContext: home,
+      awayContext: away,
+    });
+  }
+
+  return fixtures;
+}
+
+function buildModelOddsFromContext(
+  fixture: MatchFixture & {
+    homeContext?: TeamContext;
+    awayContext?: TeamContext;
+  }
+): OddsLine {
+  const homeRank = fixture.homeContext?.rank ?? 10;
+  const awayRank = fixture.awayContext?.rank ?? 10;
+
+  let home = 2.4;
+  let draw = 3.4;
+  let away = 2.9;
+
+  if (homeRank + 3 < awayRank) {
+    home = 1.8;
+    draw = 3.7;
+    away = 4.4;
+  } else if (awayRank + 3 < homeRank) {
+    home = 4.2;
+    draw = 3.5;
+    away = 1.9;
+  } else if (Math.abs(homeRank - awayRank) <= 2) {
+    home = 2.45;
+    draw = 3.2;
+    away = 2.75;
+  }
+
+  return {
+    fixtureId: fixture.id,
+    bookmaker: 'Model fallback',
+    home,
+    draw,
+    away,
+    over2_5: 1.95,
+    under2_5: 1.95,
+    btts_yes: 1.9,
+    btts_no: 1.9,
+    capturedAt: new Date().toISOString(),
+  };
 }
 
 export async function getLiveDashboard(round?: number) {
@@ -338,9 +426,21 @@ export async function getLiveDashboard(round?: number) {
     };
   }
 
-  const liveOdds = await fetchLiveOdds();
+  const { events: liveOdds, ok: oddsOk, error: oddsError } = await fetchLiveOddsSafe();
   const baseStandingsMap = await fetchStandingsMap();
-  const standingsMap = await enrichRecentFormForRelevantTeams(baseStandingsMap, liveOdds);
+
+  const fixtureSeed =
+    liveOdds.length > 0
+      ? liveOdds.map((e) => ({
+          homeTeam: e.home_team,
+          awayTeam: e.away_team,
+        }))
+      : fallbackFixturesFromStandings(baseStandingsMap).map((f) => ({
+          homeTeam: f.homeTeam,
+          awayTeam: f.awayTeam,
+        }));
+
+  const standingsMap = await enrichRecentFormForRelevantTeams(baseStandingsMap, fixtureSeed);
 
   const mappedFixtures: Array<
     MatchFixture & {
@@ -351,48 +451,57 @@ export async function getLiveDashboard(round?: number) {
   const mappedOdds: OddsLine[] = [];
   const skippedNoH2H: Array<{ home: string; away: string; bookmaker?: string }> = [];
 
-  for (const event of liveOdds) {
-    const homeTeam = normalizeTeamName(event.home_team);
-    const awayTeam = normalizeTeamName(event.away_team);
-    const bookmaker = event.bookmakers?.[0];
-    const h2h = parseMoneyline(bookmaker);
-    const totals = parseTotals(bookmaker);
+  if (liveOdds.length > 0) {
+    for (const event of liveOdds.slice(0, MAX_FIXTURES)) {
+      const homeTeam = normalizeTeamName(event.home_team);
+      const awayTeam = normalizeTeamName(event.away_team);
+      const bookmaker = event.bookmakers?.[0];
+      const h2h = parseMoneyline(bookmaker);
+      const totals = parseTotals(bookmaker);
 
-    const home = h2h.find((o) => normalizeTeamName(o.name) === homeTeam)?.price;
-    const away = h2h.find((o) => normalizeTeamName(o.name) === awayTeam)?.price;
-    const draw = h2h.find((o) => o.name.toLowerCase() === 'draw')?.price;
+      const home = h2h.find((o) => normalizeTeamName(o.name) === homeTeam)?.price;
+      const away = h2h.find((o) => normalizeTeamName(o.name) === awayTeam)?.price;
+      const draw = h2h.find((o) => o.name.toLowerCase() === 'draw')?.price;
 
-    if (!home || !away || !draw) {
-      skippedNoH2H.push({ home: homeTeam, away: awayTeam, bookmaker: bookmaker?.title });
-      continue;
+      if (!home || !away || !draw) {
+        skippedNoH2H.push({ home: homeTeam, away: awayTeam, bookmaker: bookmaker?.title });
+        continue;
+      }
+
+      mappedFixtures.push({
+        id: String(event.id),
+        round: round ?? 34,
+        kickoff: event.commence_time,
+        homeTeam,
+        awayTeam,
+        daysRestHome: 6,
+        daysRestAway: 6,
+        injuriesHome: 0,
+        injuriesAway: 0,
+        homeContext: standingsMap.get(homeTeam),
+        awayContext: standingsMap.get(awayTeam),
+      });
+
+      mappedOdds.push({
+        fixtureId: String(event.id),
+        bookmaker: bookmaker?.title ?? 'Market',
+        home,
+        draw,
+        away,
+        over2_5: totals.over2_5,
+        under2_5: totals.under2_5,
+        btts_yes: 1.9,
+        btts_no: 1.9,
+        capturedAt: bookmaker?.last_update ?? new Date().toISOString(),
+      });
     }
+  } else {
+    const fallbackFixtures = fallbackFixturesFromStandings(standingsMap).slice(0, MAX_FIXTURES);
 
-    mappedFixtures.push({
-      id: String(event.id),
-      round: round ?? 34,
-      kickoff: event.commence_time,
-      homeTeam,
-      awayTeam,
-      daysRestHome: 6,
-      daysRestAway: 6,
-      injuriesHome: 0,
-      injuriesAway: 0,
-      homeContext: standingsMap.get(homeTeam),
-      awayContext: standingsMap.get(awayTeam),
-    });
-
-    mappedOdds.push({
-      fixtureId: String(event.id),
-      bookmaker: bookmaker?.title ?? 'Market',
-      home,
-      draw,
-      away,
-      over2_5: totals.over2_5,
-      under2_5: totals.under2_5,
-      btts_yes: 1.9,
-      btts_no: 1.9,
-      capturedAt: bookmaker?.last_update ?? new Date().toISOString(),
-    });
+    for (const fixture of fallbackFixtures) {
+      mappedFixtures.push(fixture);
+      mappedOdds.push(buildModelOddsFromContext(fixture));
+    }
   }
 
   const recommendations = mappedFixtures
@@ -414,19 +523,23 @@ export async function getLiveDashboard(round?: number) {
     round: round ?? mappedFixtures[0]?.round ?? 34,
     fixtures: fixtureCards,
     recommendations,
-    source: 'live',
+    source: oddsOk ? 'live' : 'partial-live',
     generatedAt: new Date().toISOString(),
     debug: {
-      mode: 'live',
+      mode: oddsOk ? 'live' : 'partial-live',
       liveOddsCount: liveOdds.length,
       standingsCount: standingsMap.size,
       recentFormTeamsCount: Array.from(standingsMap.values()).filter((x) => !!x.form).length,
+      oddsAvailable: oddsOk,
+      oddsError: oddsError ?? null,
+      usingFallbackOdds: !oddsOk,
       firstFixture: fixtureCards[0]
         ? {
             homeTeam: fixtureCards[0].homeTeam,
             awayTeam: fixtureCards[0].awayTeam,
             homeContext: fixtureCards[0].homeContext ?? null,
             awayContext: fixtureCards[0].awayContext ?? null,
+            latestOdds: fixtureCards[0].latestOdds ?? null,
           }
         : null,
       skippedNoH2H: skippedNoH2H.slice(0, 10),
