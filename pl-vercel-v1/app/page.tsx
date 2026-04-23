@@ -321,11 +321,17 @@ export default function Page() {
             </p>
             <p>{buildRecommendationSummary(bestRecommendation)}</p>
           </div>
-        ) : null}
+        ) : (
+          <div className="info-panel" style={{ marginTop: 20 }}>
+            <h3>Ingen klare verdi-spill akkurat nå</h3>
+            <p>Modellen ser ikke nok positiv edge innenfor filtrene dine akkurat nå. Det er ofte et sunt tegn på disiplin, ikke et problem.</p>
+          </div>
+        )}
 
         {shortlist.length > 0 ? (
           <div className="info-panel" style={{ marginTop: 20 }}>
             <h3>Shortlist</h3>
+            <p className="section-subtitle">Rask watchlist over de sterkeste casene akkurat nå.</p>
             <div className="metrics-grid" style={{ marginTop: 14 }}>
               {shortlist.map((rec, idx) => (
                 <button
@@ -418,7 +424,7 @@ export default function Page() {
 
             <div className="item-list">
               {filteredRecommendations.length === 0 ? (
-                <div className="empty-box">Ingen anbefalinger passer filtrene akkurat nå.</div>
+                <div className="empty-box">Ingen anbefalinger passer filtrene akkurat nå. Prøv lavere EV-filter eller et annet marked.</div>
               ) : (
                 filteredRecommendations.slice(0, 10).map((rec, idx) => (
                   <button
