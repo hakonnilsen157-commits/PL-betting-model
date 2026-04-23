@@ -15,12 +15,21 @@ type Recommendation = {
   note: string;
 };
 
+type RecentMatchSummary = {
+  opponent: string;
+  venue: 'H' | 'A';
+  result: 'W' | 'D' | 'L';
+  kickoff: string;
+};
+
 type TeamContext = {
   teamId?: number;
   teamName: string;
   rank?: number;
   points?: number;
   form?: string;
+  formScore?: number;
+  recentMatches?: RecentMatchSummary[];
   description?: string;
   goalsFor?: number;
   goalsAgainst?: number;
@@ -87,6 +96,17 @@ function formatDate(date: string) {
   }
 }
 
+function formatShortDate(date: string) {
+  try {
+    return new Date(date).toLocaleDateString('no-NO', {
+      day: '2-digit',
+      month: '2-digit',
+    });
+  } catch {
+    return date;
+  }
+}
+
 function formatMarket(market?: string) {
   if (!market) return 'Ingen tydelig kandidat';
   const map: Record<string, string> = {
@@ -121,6 +141,12 @@ function oddsSourceMeta(bookmaker?: string) {
   };
 }
 
+function resultBadgeClass(result: 'W' | 'D' | 'L') {
+  if (result === 'W') return 'result-badge win';
+  if (result === 'D') return 'result-badge draw';
+  return 'result-badge loss';
+}
+
 function buildPreviewText(fixture: FixtureCard, rec?: Recommendation, source?: string) {
   const home = fixture.homeContext;
   const away = fixture.awayContext;
@@ -135,6 +161,12 @@ function buildPreviewText(fixture: FixtureCard, rec?: Recommendation, source?: s
   if (home?.form || away?.form) {
     parts.push(
       `${fixture.homeTeam} kommer inn i ${describeForm(home?.form)}, mens ${fixture.awayTeam} møter opp med ${describeForm(away?.form)}.`
+    );
+  }
+
+  if (home?.formScore !== undefined && away?.formScore !== undefined) {
+    parts.push(
+      `Formscore siste fem er ${home.formScore} for ${fixture.homeTeam} og ${away.formScore} for ${fixture.awayTeam}.`
     );
   }
 
@@ -221,6 +253,12 @@ function buildWhyThisPick(fixture: FixtureCard, rec?: Recommendation) {
     );
   }
 
+  if (home?.formScore !== undefined && away?.formScore !== undefined) {
+    lines.push(
+      `Formsummen siste fem peker på ${home.formScore}-${away.formScore}, som gir modellen en rask temperaturmåling på hvilken side som kommer inn med best momentum.`
+    );
+  }
+
   if (home?.rank && away?.rank) {
     lines.push(
       `Tabellmessig ligger ${fixture.homeTeam} på plass ${home.rank}, mens ${fixture.awayTeam} ligger på plass ${away.rank}. Det gjør det lettere å tolke om oddsen ser høy eller lav ut.`
@@ -240,9 +278,7 @@ function buildWhyThisPick(fixture: FixtureCard, rec?: Recommendation) {
   }
 
   lines.push(
-    `Confidence på ${rec.confidence.toFixed(
-      0
-    )}/100 tilsier at dette er et spill med brukbar støtte i modellen, men fortsatt ikke et blindt “må-spilles”-spill.`
+    `Confidence på ${rec.confidence.toFixed(0)}/100 tilsier at dette er et spill med brukbar støtte i modellen, men fortsatt ikke et blindt “må-spilles”-spill.`
   );
 
   return lines.slice(0, 5);
@@ -305,21 +341,21 @@ function buildTeamAngles(ctx: TeamContext | undefined, side: 'home' | 'away') {
     lines.push(`Form siste 5: ${ctx.form}`);
   }
 
+  if (ctx.formScore !== undefined) {
+    lines.push(`Formscore siste 5: ${ctx.formScore}/15`);
+  }
+
   if (ctx.goalsFor !== undefined && ctx.goalsAgainst !== undefined) {
     lines.push(`Målscore: ${ctx.goalsFor} for / ${ctx.goalsAgainst} mot`);
   }
 
   if (side === 'home') {
     if (ctx.homePlayed !== undefined) {
-      lines.push(
-        `Hjemme: ${ctx.homeWins ?? 0}-${ctx.homeDraws ?? 0}-${ctx.homeLosses ?? 0} på ${ctx.homePlayed} kamper`
-      );
+      lines.push(`Hjemme: ${ctx.homeWins ?? 0}-${ctx.homeDraws ?? 0}-${ctx.homeLosses ?? 0} på ${ctx.homePlayed} kamper`);
     }
   } else {
     if (ctx.awayPlayed !== undefined) {
-      lines.push(
-        `Borte: ${ctx.awayWins ?? 0}-${ctx.awayDraws ?? 0}-${ctx.awayLosses ?? 0} på ${ctx.awayPlayed} kamper`
-      );
+      lines.push(`Borte: ${ctx.awayWins ?? 0}-${ctx.awayDraws ?? 0}-${ctx.awayLosses ?? 0} på ${ctx.awayPlayed} kamper`);
     }
   }
 
@@ -423,7 +459,6 @@ export default function MatchDetailPanel({
 
         <div className="info-panel">
           <h3>Signalstyrke</h3>
-
           <div className="meter-wrap">
             <div className="meter-block">
               <div className="meter-head">
@@ -431,12 +466,7 @@ export default function MatchDetailPanel({
                 <span>{pct(topRecommendation?.expectedValue)}</span>
               </div>
               <div className="meter-track">
-                <div
-                  className="meter-fill green"
-                  style={{
-                    width: `${Math.min(((topRecommendation?.expectedValue ?? 0) / 0.2) * 100, 100)}%`,
-                  }}
-                />
+                <div className="meter-fill green" style={{ width: `${Math.min(((topRecommendation?.expectedValue ?? 0) / 0.2) * 100, 100)}%` }} />
               </div>
             </div>
 
@@ -446,12 +476,7 @@ export default function MatchDetailPanel({
                 <span>{pct(topRecommendation?.edge)}</span>
               </div>
               <div className="meter-track">
-                <div
-                  className="meter-fill amber"
-                  style={{
-                    width: `${Math.min(((topRecommendation?.edge ?? 0) / 0.15) * 100, 100)}%`,
-                  }}
-                />
+                <div className="meter-fill amber" style={{ width: `${Math.min(((topRecommendation?.edge ?? 0) / 0.15) * 100, 100)}%` }} />
               </div>
             </div>
 
@@ -461,12 +486,7 @@ export default function MatchDetailPanel({
                 <span>{topRecommendation ? `${topRecommendation.confidence.toFixed(0)}%` : '–'}</span>
               </div>
               <div className="meter-track">
-                <div
-                  className="meter-fill blue"
-                  style={{
-                    width: `${Math.min(topRecommendation?.confidence ?? 0, 100)}%`,
-                  }}
-                />
+                <div className="meter-fill blue" style={{ width: `${Math.min(topRecommendation?.confidence ?? 0, 100)}%` }} />
               </div>
             </div>
           </div>
@@ -486,25 +506,48 @@ export default function MatchDetailPanel({
         <div className="team-box">
           <h3>{fixture.homeTeam}</h3>
           {homeAngles.map((line, idx) => (
-            <div key={idx} className="team-line">
-              {line}
-            </div>
+            <div key={idx} className="team-line">{line}</div>
           ))}
+          {fixture.homeContext?.recentMatches?.length ? (
+            <div className="recent-form-wrap">
+              <div className="recent-form-title">Siste 5 kamper</div>
+              <div className="recent-form-list">
+                {fixture.homeContext.recentMatches.map((match, idx) => (
+                  <div key={`${match.opponent}-${match.kickoff}-${idx}`} className="recent-form-item">
+                    <span className={resultBadgeClass(match.result)}>{match.result}</span>
+                    <span className="recent-form-opp">{match.venue} · {match.opponent}</span>
+                    <span className="recent-form-date">{formatShortDate(match.kickoff)}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : null}
         </div>
 
         <div className="team-box">
           <h3>{fixture.awayTeam}</h3>
           {awayAngles.map((line, idx) => (
-            <div key={idx} className="team-line">
-              {line}
-            </div>
+            <div key={idx} className="team-line">{line}</div>
           ))}
+          {fixture.awayContext?.recentMatches?.length ? (
+            <div className="recent-form-wrap">
+              <div className="recent-form-title">Siste 5 kamper</div>
+              <div className="recent-form-list">
+                {fixture.awayContext.recentMatches.map((match, idx) => (
+                  <div key={`${match.opponent}-${match.kickoff}-${idx}`} className="recent-form-item">
+                    <span className={resultBadgeClass(match.result)}>{match.result}</span>
+                    <span className="recent-form-opp">{match.venue} · {match.opponent}</span>
+                    <span className="recent-form-date">{formatShortDate(match.kickoff)}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : null}
         </div>
       </div>
 
       <div className="info-panel">
         <h3>Oddsoversikt</h3>
-
         {oddsMeta.usingModelOdds ? (
           <p className="section-subtitle" style={{ marginBottom: 16 }}>
             Disse tallene er modellodds, ikke direkte bookmaker-odds.
@@ -518,13 +561,11 @@ export default function MatchDetailPanel({
             <div className="odds-row"><span>Uavgjort</span><span>{fixture.latestOdds?.draw ?? '–'}</span></div>
             <div className="odds-row"><span>Borte</span><span>{fixture.latestOdds?.away ?? '–'}</span></div>
           </div>
-
           <div className="odds-card">
             <div className="odds-card-title">Over / Under 2.5</div>
             <div className="odds-row"><span>Over 2.5</span><span>{fixture.latestOdds?.over2_5 ?? '–'}</span></div>
             <div className="odds-row"><span>Under 2.5</span><span>{fixture.latestOdds?.under2_5 ?? '–'}</span></div>
           </div>
-
           <div className="odds-card">
             <div className="odds-card-title">BTTS</div>
             <div className="odds-row"><span>Ja</span><span>{fixture.latestOdds?.btts_yes ?? '–'}</span></div>
@@ -557,7 +598,6 @@ export default function MatchDetailPanel({
 
       <div className="info-panel">
         <h3>Alternative spill i kampen</h3>
-
         {recommendations.length === 0 ? (
           <div className="empty-box">Ingen kvalifiserte spill i denne kampen akkurat nå.</div>
         ) : (
@@ -570,7 +610,6 @@ export default function MatchDetailPanel({
                 </div>
                 <div className="ev-pill">EV {pct(rec.expectedValue)}</div>
               </div>
-
               <div className="metrics-grid" style={{ marginTop: 16 }}>
                 <div className="metric-pill">
                   <div className="metric-pill-label">Modellsannsynlighet</div>
@@ -586,9 +625,7 @@ export default function MatchDetailPanel({
                 </div>
                 <div className="metric-pill">
                   <div className="metric-pill-label">Oddsgrunnlag</div>
-                  <div className="metric-pill-value">
-                    {oddsMeta.usingModelOdds ? 'Modellodds' : rec.bookmakerOdds}
-                  </div>
+                  <div className="metric-pill-value">{oddsMeta.usingModelOdds ? 'Modellodds' : rec.bookmakerOdds}</div>
                 </div>
               </div>
             </div>
@@ -597,7 +634,7 @@ export default function MatchDetailPanel({
       </div>
 
       <div className="warning-box">
-        <strong>Neste steg:</strong> Nå har vi ekte tabell- og formkontekst inne. Neste naturlige steg er å koble på konkrete siste kamper, spillere i form og mer detaljert skadebilde.
+        <strong>Neste steg:</strong> Nå har vi ekte tabell- og formkontekst inne. Neste naturlige steg er å koble på mer detaljert skadebilde, forventede lagoppstillinger og tydeligere kamptempo-signaler.
       </div>
     </section>
   );
