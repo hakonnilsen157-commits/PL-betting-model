@@ -9,6 +9,8 @@ const ODDS_REGIONS = process.env.ODDS_REGIONS ?? 'uk,eu';
 const SPORT_KEY = process.env.ODDS_SPORT_KEY ?? 'soccer_epl';
 const MAX_FIXTURES = Number(process.env.MAX_FIXTURES ?? '10');
 const FOOTBALL_DATA_COMPETITION = process.env.FOOTBALL_DATA_COMPETITION ?? 'PL';
+const STANDINGS_CACHE_TTL_MS = 90 * 1000;
+const FORM_CACHE_TTL_MS = 90 * 1000;
 
 type OddsApiOutcome = { name: string; price: number; point?: number };
 type OddsApiMarket = { key: string; outcomes: OddsApiOutcome[] };
@@ -97,6 +99,31 @@ type TeamContext = {
   awayGoalsAgainst?: number;
 };
 
+type CachedValue<T> = {
+  value: T;
+  timestamp: number;
+};
+
+type RuntimeCache = {
+  standings?: CachedValue<Map<string, TeamContext>>;
+  teamForm?: Map<number, CachedValue<string>>;
+};
+
+const runtimeCache = globalThis as typeof globalThis & { __plBettingCache?: RuntimeCache };
+if (!runtimeCache.__plBettingCache) {
+  runtimeCache.__plBettingCache = {
+    teamForm: new Map<number, CachedValue<string>>(),
+  };
+}
+
+function getCache() {
+  return runtimeCache.__plBettingCache!;
+}
+
+function isFresh(timestamp: number, ttlMs: number) {
+  return Date.now() - timestamp < ttlMs;
+}
+
 function isLiveMode() {
   return (process.env.DATA_MODE ?? 'mock') === 'live';
 }
@@ -156,11 +183,21 @@ async function fetchFootballDataJson<T>(path: string): Promise<T> {
     throw new Error('Missing FOOTBALL_DATA_API_KEY');
   }
 
-  return fetchJson<T>(`${FOOTBALL_DATA_BASE}${path}`, {
+  const response = await fetch(`${FOOTBALL_DATA_BASE}${path}`, {
+    cache: 'force-cache',
+    next: { revalidate: 90 },
     headers: {
+      'Content-Type': 'application/json',
       'X-Auth-Token': apiKey,
     },
   });
+
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`Request failed ${response.status}: ${text.slice(0, 500)}`);
+  }
+
+  return response.json() as Promise<T>;
 }
 
 function resultLetterForTeam(teamId: number, match: FootballDataMatch): 'W' | 'D' | 'L' | null {
@@ -186,13 +223,19 @@ function resultLetterForTeam(teamId: number, match: FootballDataMatch): 'W' | 'D
 }
 
 async function fetchRecentFormForTeam(teamId: number): Promise<string | undefined> {
+  const cache = getCache();
+  const cached = cache.teamForm?.get(teamId);
+  if (cached && isFresh(cached.timestamp, FORM_CACHE_TTL_MS)) {
+    return cached.value;
+  }
+
   try {
     const data = await fetchFootballDataJson<FootballDataMatchesResponse>(
       `/teams/${teamId}/matches?status=FINISHED&limit=5`
     );
 
     const matches = data.matches ?? [];
-    if (!matches.length) return undefined;
+    if (!matches.length) return cached?.value;
 
     const form = matches
       .map((match) => resultLetterForTeam(teamId, match))
@@ -200,9 +243,16 @@ async function fetchRecentFormForTeam(teamId: number): Promise<string | undefine
       .slice(0, 5)
       .join('');
 
-    return form || undefined;
+    if (form) {
+      cache.teamForm?.set(teamId, {
+        value: form,
+        timestamp: Date.now(),
+      });
+    }
+
+    return form || cached?.value;
   } catch {
-    return undefined;
+    return cached?.value;
   }
 }
 
@@ -210,7 +260,16 @@ async function fetchStandingsMap(): Promise<{
   map: Map<string, TeamContext>;
   ok: boolean;
   error?: string;
+  cacheHit?: boolean;
+  staleCacheUsed?: boolean;
 }> {
+  const cache = getCache();
+  const cached = cache.standings;
+
+  if (cached && isFresh(cached.timestamp, STANDINGS_CACHE_TTL_MS)) {
+    return { map: cached.value, ok: true, cacheHit: true, staleCacheUsed: false };
+  }
+
   try {
     const data = await fetchFootballDataJson<FootballDataStandingsResponse>(
       `/competitions/${FOOTBALL_DATA_COMPETITION}/standings`
@@ -272,12 +331,29 @@ async function fetchStandingsMap(): Promise<{
       });
     }
 
-    return { map, ok: true };
+    cache.standings = {
+      value: map,
+      timestamp: Date.now(),
+    };
+
+    return { map, ok: true, cacheHit: false, staleCacheUsed: false };
   } catch (error) {
+    if (cached) {
+      return {
+        map: cached.value,
+        ok: true,
+        error: error instanceof Error ? error.message : 'Unknown football-data error',
+        cacheHit: false,
+        staleCacheUsed: true,
+      };
+    }
+
     return {
       map: new Map(),
       ok: false,
       error: error instanceof Error ? error.message : 'Unknown football-data error',
+      cacheHit: false,
+      staleCacheUsed: false,
     };
   }
 }
@@ -462,6 +538,8 @@ export async function getLiveDashboard(round?: number) {
         oddsError: oddsError ?? null,
         footballDataAvailable: false,
         footballDataError: standingsResult.error ?? null,
+        footballDataCacheHit: standingsResult.cacheHit ?? false,
+        footballDataStaleCacheUsed: standingsResult.staleCacheUsed ?? false,
         usingFallbackOdds: true,
         usingMockFallback: true,
         firstFixture: mock.fixtures[0] ?? null,
@@ -575,6 +653,8 @@ export async function getLiveDashboard(round?: number) {
       oddsError: oddsError ?? null,
       footballDataAvailable: standingsResult.ok,
       footballDataError: standingsResult.error ?? null,
+      footballDataCacheHit: standingsResult.cacheHit ?? false,
+      footballDataStaleCacheUsed: standingsResult.staleCacheUsed ?? false,
       usingFallbackOdds: !oddsOk,
       usingMockFallback: false,
       firstFixture: fixtureCards[0]
