@@ -75,6 +75,21 @@ function units(value?: number) {
   return `${value > 0 ? '+' : ''}${value.toFixed(2)}u`;
 }
 
+function sampleStatus(settled?: number) {
+  if (!settled) return 'Ingen settled picks ennå';
+  if (settled < 25) return 'Tidlig testfase';
+  if (settled < 100) return 'Begynnende datagrunnlag';
+  return 'Mer robust sample';
+}
+
+function modelVerdict(roi?: number, settled?: number) {
+  if (!settled) return 'Mangler historikk';
+  if (settled < 25) return 'Ikke vurder edge ennå';
+  if ((roi ?? 0) > 0.05) return 'Positivt signal';
+  if ((roi ?? 0) > 0) return 'Svakt positivt signal';
+  return 'Trenger forbedring';
+}
+
 export default function TrackerStatsPage() {
   const [data, setData] = useState<TrackerStatsResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -190,6 +205,7 @@ export default function TrackerStatsPage() {
               {clearing ? 'Nullstiller...' : 'Reset store'}
             </button>
             <a href="/api/tracker/export?format=csv" className="app-nav-link">CSV export</a>
+            <a href="/api/tracker/export" className="app-nav-link">JSON export</a>
           </div>
         </div>
 
@@ -221,6 +237,21 @@ export default function TrackerStatsPage() {
             <div className="summary-value">{pct(summary?.hitRate)}</div>
           </div>
           <div className="summary-card">
+            <div className="summary-label">Sample status</div>
+            <div className="summary-value" style={{ fontSize: 20 }}>{sampleStatus(summary?.settledCount)}</div>
+          </div>
+          <div className="summary-card">
+            <div className="summary-label">Model verdict</div>
+            <div className="summary-value" style={{ fontSize: 20 }}>{modelVerdict(summary?.roi, summary?.settledCount)}</div>
+          </div>
+          <div className="summary-card">
+            <div className="summary-label">Storage</div>
+            <div className="summary-value" style={{ fontSize: 20 }}>{data?.storageMode ?? '–'}</div>
+          </div>
+        </div>
+
+        <div className="summary-grid" style={{ marginTop: 16 }}>
+          <div className="summary-card">
             <div className="summary-label">Snittodds</div>
             <div className="summary-value">{summary?.avgOdds?.toFixed(2) ?? '–'}</div>
           </div>
@@ -229,8 +260,12 @@ export default function TrackerStatsPage() {
             <div className="summary-value green">{pct(summary?.avgEv)}</div>
           </div>
           <div className="summary-card">
-            <div className="summary-label">Storage</div>
-            <div className="summary-value" style={{ fontSize: 20 }}>{data?.storageMode ?? '–'}</div>
+            <div className="summary-label">Snitt confidence pending</div>
+            <div className="summary-value">{summary?.avgConfidence?.toFixed(1) ?? '–'}</div>
+          </div>
+          <div className="summary-card">
+            <div className="summary-label">Sist oppdatert</div>
+            <div className="summary-value" style={{ fontSize: 18 }}>{formatDate(data?.updatedAt)}</div>
           </div>
         </div>
       </section>
@@ -303,9 +338,8 @@ export default function TrackerStatsPage() {
             </div>
           </section>
 
-          <section className="detail-card" style={{ marginTop: 16 }}>
-            <h2 className="section-title">Sist oppdatert</h2>
-            <p className="section-subtitle">{formatDate(data?.updatedAt)}</p>
+          <section className="warning-box">
+            Sample status og model verdict er kun en grov rettesnor. Modellen bør ikke vurderes seriøst før den har mange settled picks per marked.
           </section>
         </aside>
       </section>
