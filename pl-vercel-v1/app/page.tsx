@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import MatchDetailPanel from '@/components/MatchDetailPanel';
+import { trackerSeedPicks, trackerSeedResults } from '@/lib/mock-data';
 
 type Recommendation = {
   fixtureId: string;
@@ -83,6 +84,17 @@ type DashboardResponse = {
     oddsError?: string | null;
     footballDataAvailable?: boolean;
   };
+};
+
+type TrackerRow = {
+  fixtureId: string;
+  match: string;
+  market: string;
+  odds: number;
+  confidence: number;
+  expectedValue: number;
+  won: boolean;
+  profit: number;
 };
 
 function pct(v?: number) {
@@ -196,6 +208,47 @@ function strengthLabel(score: number) {
   return 'Svakere';
 }
 
+function marketWon(market: string, homeGoals: number, awayGoals: number) {
+  switch (market) {
+    case 'home':
+      return homeGoals > awayGoals;
+    case 'draw':
+      return homeGoals === awayGoals;
+    case 'away':
+      return awayGoals > homeGoals;
+    case 'over2_5':
+      return homeGoals + awayGoals > 2.5;
+    case 'under2_5':
+      return homeGoals + awayGoals < 2.5;
+    case 'btts_yes':
+      return homeGoals > 0 && awayGoals > 0;
+    case 'btts_no':
+      return homeGoals === 0 || awayGoals === 0;
+    default:
+      return false;
+  }
+}
+
+function buildTrackerRows(): TrackerRow[] {
+  return trackerSeedPicks
+    .map((pick) => {
+      const result = trackerSeedResults.find((item) => item.fixtureId === pick.fixtureId);
+      if (!result) return null;
+      const won = marketWon(pick.market, result.homeGoals, result.awayGoals);
+      return {
+        fixtureId: pick.fixtureId,
+        match: `${pick.homeTeam} vs ${pick.awayTeam}`,
+        market: formatMarket(pick.market),
+        odds: pick.bookmakerOdds,
+        confidence: pick.confidence,
+        expectedValue: pick.expectedValue,
+        won,
+        profit: won ? pick.bookmakerOdds - 1 : -1,
+      } satisfies TrackerRow;
+    })
+    .filter((row): row is TrackerRow => row !== null);
+}
+
 export default function Page() {
   const [data, setData] = useState<DashboardResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -251,6 +304,15 @@ export default function Page() {
   }, [data, marketFilter, minEV]);
 
   const shortlist = useMemo(() => filteredRecommendations.slice(0, 3), [filteredRecommendations]);
+  const trackerRows = useMemo(() => buildTrackerRows(), []);
+  const trackerSummary = useMemo(() => {
+    const total = trackerRows.length;
+    const wins = trackerRows.filter((row) => row.won).length;
+    const staked = total;
+    const profit = trackerRows.reduce((sum, row) => sum + row.profit, 0);
+    const roi = staked > 0 ? profit / staked : 0;
+    return { total, wins, hitRate: total > 0 ? wins / total : 0, profit, roi };
+  }, [trackerRows]);
 
   const selectedFixture = useMemo(() => {
     if (!data?.fixtures?.length) return null;
@@ -312,6 +374,42 @@ export default function Page() {
             </p>
           </div>
         ) : null}
+
+        <div className="info-panel" style={{ marginTop: 20 }}>
+          <h3>V2 tracker foundation</h3>
+          <p>
+            Første steg i V2 er nå inne: en tracker-seksjon som viser hvordan anbefalinger kan spores mot resultat, treffrate og ROI. Denne første versjonen er seedet med tidligere picks som fundament før vi kobler på full historikklagring.
+          </p>
+          <div className="summary-grid" style={{ marginTop: 14 }}>
+            <div className="summary-card">
+              <div className="summary-label">Settled picks</div>
+              <div className="summary-value">{trackerSummary.total}</div>
+            </div>
+            <div className="summary-card">
+              <div className="summary-label">Treffrate</div>
+              <div className="summary-value">{pct(trackerSummary.hitRate)}</div>
+            </div>
+            <div className="summary-card">
+              <div className="summary-label">Profit</div>
+              <div className="summary-value green">{trackerSummary.profit.toFixed(2)}u</div>
+            </div>
+            <div className="summary-card">
+              <div className="summary-label">ROI</div>
+              <div className="summary-value green">{pct(trackerSummary.roi)}</div>
+            </div>
+          </div>
+          <div className="metrics-grid" style={{ marginTop: 14 }}>
+            {trackerRows.slice(0, 3).map((row) => (
+              <div key={row.fixtureId} className="metric-pill" style={{ textAlign: 'left' }}>
+                <div className="metric-pill-label">{row.won ? 'Win' : 'Loss'} · {row.market}</div>
+                <div className="metric-pill-value">{row.match}</div>
+                <div className="section-subtitle" style={{ marginTop: 8 }}>
+                  Profit {row.profit > 0 ? '+' : ''}{row.profit.toFixed(2)}u · EV {pct(row.expectedValue)}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
 
         {bestRecommendation ? (
           <div className="info-panel" style={{ marginTop: 20 }}>
