@@ -1,5 +1,34 @@
 const changes = [
   {
+    version: 'V2.7',
+    title: 'Tracker API og statsflyt',
+    items: [
+      'Lagt til tracker stats API med ROI, hit rate, market stats, datakvalitet og profittrend.',
+      'Lagt til Stats-side som leser fra tracker stats API-et.',
+      'Lagt til CSV/JSON export API for trackerhistorikk.',
+      'Lagt til seed-demo API og knapp på Stats-siden for å fylle testdata.',
+    ],
+  },
+  {
+    version: 'V2.6',
+    title: 'Tracker og navigasjon',
+    items: [
+      'Oppgradert V2 Tracker med filter på status, marked og datakvalitet.',
+      'Lagt til CSV/JSON-eksport fra tracker UI.',
+      'Ryddet toppmenyen i grupper: App, Analyse og Prosjekt.',
+      'Lagt til API reference-side med oversikt over interne API-ruter.',
+    ],
+  },
+  {
+    version: 'V2.5',
+    title: 'Prosjekt- og kvalitetssider',
+    items: [
+      'Lagt til Glossary, Setup, About, QA og Database plan.',
+      'Lagt til Risk-side med staking- og risikoregler.',
+      'Lagt til Changelog som intern prosjektlogg.',
+    ],
+  },
+  {
     version: 'V2.4',
     title: 'Data og backtest-struktur',
     items: [
