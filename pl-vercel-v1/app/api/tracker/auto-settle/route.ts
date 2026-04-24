@@ -1,15 +1,20 @@
 import { NextResponse } from 'next/server';
-import { getTrackerStore, mergeTrackerSettledRows } from '@/lib/tracker-store';
+import {
+  getPersistentTrackerStore,
+  getTrackerStorageMode,
+  mergePersistentSettledRows,
+} from '@/lib/tracker-persistent-store';
 import { isSettlementReady, settleTrackerPicks } from '@/lib/tracker-settlement';
 
 export async function POST() {
   try {
-    const store = getTrackerStore();
+    const store = await getPersistentTrackerStore();
     const ready = store.open.filter((pick) => isSettlementReady(pick.kickoff)).slice(0, 20);
 
     if (!ready.length) {
       return NextResponse.json({
         ok: true,
+        storageMode: getTrackerStorageMode(),
         settled: [],
         pending: [],
         unsupported: [],
@@ -20,10 +25,11 @@ export async function POST() {
     }
 
     const result = await settleTrackerPicks(ready);
-    const nextStore = result.settled.length > 0 ? mergeTrackerSettledRows(result.settled) : getTrackerStore();
+    const nextStore = result.settled.length > 0 ? await mergePersistentSettledRows(result.settled) : await getPersistentTrackerStore();
 
     return NextResponse.json({
       ok: true,
+      storageMode: getTrackerStorageMode(),
       ...result,
       store: nextStore,
     });
