@@ -27,11 +27,29 @@ const tables = [
 ];
 
 const databaseSteps = [
-  'Velg en enkel database som passer godt med Vercel, for eksempel Supabase, Neon eller Vercel Postgres.',
-  'Start med å lagre recommendations og settlements. Det gir raskest verdi for backtesting.',
-  'Behold localStorage som fallback mens database-integrasjonen testes.',
-  'Lag API-ruter for å skrive og lese historikk i stedet for å skrive direkte fra klienten.',
+  'Start med Upstash Redis for enkel persistent tracker-store i V2.',
+  'Bruk /api/tracker/history som eneste skrivepunkt for trackerhistorikk.',
+  'Bruk /api/tracker/stats som grunnlag for Stats og Backtest-dashboard.',
+  'Når datamodellen er stabil, flytt til relasjonsdatabase som Supabase, Neon eller Vercel Postgres.',
   'Legg inn createdAt, updatedAt og datakilde på alle rader slik at historikken kan etterprøves.',
+];
+
+const storageOptions = [
+  {
+    title: 'server-memory',
+    strength: 'Raskest å teste',
+    weakness: 'Forsvinner ved restart/deploy og bør ikke brukes som langsiktig historikk.',
+  },
+  {
+    title: 'Upstash Redis',
+    strength: 'God V2-løsning',
+    weakness: 'Key-value store. Perfekt for tracker-store nå, men mindre egnet for avansert analyse senere.',
+  },
+  {
+    title: 'Supabase / Neon / Postgres',
+    strength: 'Best for V3',
+    weakness: 'Krever tydeligere schema, migrasjoner og mer struktur i appen.',
+  },
 ];
 
 export default function DatabasePage() {
@@ -43,7 +61,7 @@ export default function DatabasePage() {
             <div className="eyebrow">Premier League Betting Model</div>
             <h1 className="hero-title">Database plan</h1>
             <p className="hero-subtitle">
-              Et forslag til hvordan appen kan gå fra lokal historikk i nettleseren til ekte database-lagring av anbefalinger, odds og resultater.
+              Et forslag til hvordan appen kan gå fra localStorage/server-memory til persistent tracker-store og senere relasjonsdatabase for ekte backtest.
             </p>
           </div>
           <div className="updated-at">Storage layer</div>
@@ -55,8 +73,28 @@ export default function DatabasePage() {
           <section className="list-card">
             <div className="list-card-header">
               <div>
+                <h2 className="section-title" style={{ marginBottom: 0 }}>Storage options</h2>
+                <p className="section-subtitle">Praktisk vei fra V2-prototype til robust historikk.</p>
+              </div>
+              <div className="badge-soft">Storage</div>
+            </div>
+
+            <div className="metrics-grid" style={{ marginTop: 14 }}>
+              {storageOptions.map((option) => (
+                <div key={option.title} className="metric-pill" style={{ textAlign: 'left' }}>
+                  <div className="metric-pill-label">{option.strength}</div>
+                  <div className="metric-pill-value">{option.title}</div>
+                  <p className="section-subtitle" style={{ marginTop: 8 }}>{option.weakness}</p>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          <section className="list-card">
+            <div className="list-card-header">
+              <div>
                 <h2 className="section-title" style={{ marginBottom: 0 }}>Foreslåtte tabeller</h2>
-                <p className="section-subtitle">En enkel datamodell for historikk, backtest og settlement.</p>
+                <p className="section-subtitle">En enkel datamodell for historikk, backtest og settlement når vi går videre til Postgres.</p>
               </div>
               <div className="badge-soft">Schema</div>
             </div>
@@ -90,7 +128,7 @@ export default function DatabasePage() {
           </section>
 
           <section className="warning-box">
-            Før databasen kobles på, bør vi være sikre på hvilke data som skal lagres ved anbefalingstidspunktet. Det er det som gjør backtesten etterprøvbar.
+            Før vi går tungt inn i database, bør tracker-store og stats API brukes aktivt. Da ser vi hvilke felt som faktisk trengs før vi låser schema.
           </section>
         </aside>
       </section>
