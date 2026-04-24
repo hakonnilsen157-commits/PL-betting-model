@@ -7,6 +7,40 @@ export const metadata: Metadata = {
   description: 'Vercel prototype for a Premier League betting model',
 };
 
+const navGroups = [
+  {
+    label: 'App',
+    links: [
+      { href: '/', label: 'Dashboard' },
+      { href: '/v2-tracker', label: 'V2 Tracker' },
+      { href: '/tracker-stats', label: 'Stats' },
+    ],
+  },
+  {
+    label: 'Analyse',
+    links: [
+      { href: '/data', label: 'Data' },
+      { href: '/database', label: 'Database' },
+      { href: '/backtest', label: 'Backtest' },
+      { href: '/risk', label: 'Risk' },
+      { href: '/model', label: 'Model' },
+    ],
+  },
+  {
+    label: 'Prosjekt',
+    links: [
+      { href: '/setup', label: 'Setup' },
+      { href: '/roadmap', label: 'Roadmap' },
+      { href: '/guide', label: 'Guide' },
+      { href: '/glossary', label: 'Glossary' },
+      { href: '/about', label: 'About' },
+      { href: '/qa', label: 'QA' },
+      { href: '/status', label: 'Status' },
+      { href: '/changelog', label: 'Changelog' },
+    ],
+  },
+];
+
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
@@ -21,23 +55,19 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               </span>
             </Link>
 
-            <div className="app-nav-links">
-              <Link href="/" className="app-nav-link">Dashboard</Link>
-              <Link href="/v2-tracker" className="app-nav-link">V2 Tracker</Link>
-              <Link href="/tracker-stats" className="app-nav-link">Stats</Link>
-              <Link href="/data" className="app-nav-link">Data</Link>
-              <Link href="/database" className="app-nav-link">Database</Link>
-              <Link href="/backtest" className="app-nav-link">Backtest</Link>
-              <Link href="/risk" className="app-nav-link">Risk</Link>
-              <Link href="/model" className="app-nav-link">Model</Link>
-              <Link href="/setup" className="app-nav-link">Setup</Link>
-              <Link href="/roadmap" className="app-nav-link">Roadmap</Link>
-              <Link href="/guide" className="app-nav-link">Guide</Link>
-              <Link href="/glossary" className="app-nav-link">Glossary</Link>
-              <Link href="/about" className="app-nav-link">About</Link>
-              <Link href="/qa" className="app-nav-link">QA</Link>
-              <Link href="/status" className="app-nav-link">Status</Link>
-              <Link href="/changelog" className="app-nav-link">Changelog</Link>
+            <div className="app-nav-groups">
+              {navGroups.map((group) => (
+                <div key={group.label} className="app-nav-group">
+                  <span className="app-nav-group-label">{group.label}</span>
+                  <div className="app-nav-links">
+                    {group.links.map((link) => (
+                      <Link key={link.href} href={link.href} className="app-nav-link">
+                        {link.label}
+                      </Link>
+                    ))}
+                  </div>
+                </div>
+              ))}
             </div>
           </nav>
         </header>
