@@ -18,8 +18,38 @@ type LiveStatusResponse = {
   apiFootballSeason?: string;
 };
 
+type TrackerStatsResponse = {
+  ok?: boolean;
+  storageMode?: string;
+  updatedAt?: string;
+  summary?: {
+    pendingCount: number;
+    settledCount: number;
+    profit: number;
+    roi: number;
+    hitRate: number;
+  };
+};
+
+type EndpointStatus = {
+  name: string;
+  path: string;
+  ok: boolean;
+  status: number;
+};
+
 function yesNo(value?: boolean) {
   return value ? 'Ja' : 'Nei';
+}
+
+function pct(value?: number) {
+  if (typeof value !== 'number' || Number.isNaN(value)) return '–';
+  return `${(value * 100).toFixed(1)}%`;
+}
+
+function units(value?: number) {
+  if (typeof value !== 'number' || Number.isNaN(value)) return '–';
+  return `${value > 0 ? '+' : ''}${value.toFixed(2)}u`;
 }
 
 function formatDate(value?: string) {
@@ -31,9 +61,20 @@ function formatDate(value?: string) {
   }
 }
 
+async function probeEndpoint(name: string, path: string): Promise<EndpointStatus> {
+  try {
+    const response = await fetch(path, { cache: 'no-store' });
+    return { name, path, ok: response.ok, status: response.status };
+  } catch {
+    return { name, path, ok: false, status: 0 };
+  }
+}
+
 export default function StatusPage() {
   const [health, setHealth] = useState<HealthResponse | null>(null);
   const [liveStatus, setLiveStatus] = useState<LiveStatusResponse | null>(null);
+  const [trackerStats, setTrackerStats] = useState<TrackerStatsResponse | null>(null);
+  const [endpointStatuses, setEndpointStatuses] = useState<EndpointStatus[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -42,18 +83,29 @@ export default function StatusPage() {
     setError(null);
 
     try {
-      const [healthResponse, liveStatusResponse] = await Promise.all([
+      const [healthResponse, liveStatusResponse, trackerStatsResponse, probes] = await Promise.all([
         fetch('/api/health', { cache: 'no-store' }),
         fetch('/api/live-status', { cache: 'no-store' }),
+        fetch('/api/tracker/stats', { cache: 'no-store' }),
+        Promise.all([
+          probeEndpoint('Fixtures', '/api/fixtures'),
+          probeEndpoint('Tracker history', '/api/tracker/history'),
+          probeEndpoint('Tracker stats', '/api/tracker/stats'),
+          probeEndpoint('Tracker export', '/api/tracker/export'),
+          probeEndpoint('Seed demo preview', '/api/tracker/seed-demo'),
+        ]),
       ]);
 
-      const [healthJson, liveStatusJson] = await Promise.all([
+      const [healthJson, liveStatusJson, trackerStatsJson] = await Promise.all([
         healthResponse.json(),
         liveStatusResponse.json(),
+        trackerStatsResponse.json(),
       ]);
 
       setHealth(healthJson);
       setLiveStatus(liveStatusJson);
+      setTrackerStats(trackerStatsJson);
+      setEndpointStatuses(probes);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Ukjent statusfeil');
     } finally {
@@ -72,6 +124,8 @@ export default function StatusPage() {
     return 'Mock/fallback';
   }, [liveStatus]);
 
+  const endpointOkCount = endpointStatuses.filter((item) => item.ok).length;
+
   return (
     <main className="dashboard-shell">
       <section className="hero-card">
@@ -80,7 +134,7 @@ export default function StatusPage() {
             <div className="eyebrow">Premier League Betting Model</div>
             <h1 className="hero-title">Systemstatus</h1>
             <p className="hero-subtitle">
-              En enkel teknisk status-side som viser om appen svarer, hvilket datamodus den kjører i, og om live API-nøkler er konfigurert.
+              En teknisk status-side som viser app health, datamodus, tracker-store, API-ruter og om live API-nøkler er konfigurert.
             </p>
           </div>
           <button type="button" onClick={loadStatus} className="app-nav-link" disabled={loading}>
@@ -106,8 +160,8 @@ export default function StatusPage() {
             <div className="summary-value">{dataQuality}</div>
           </div>
           <div className="summary-card">
-            <div className="summary-label">Sist sjekket</div>
-            <div className="summary-value" style={{ fontSize: 18 }}>{formatDate(health?.timestamp)}</div>
+            <div className="summary-label">API probes</div>
+            <div className="summary-value">{endpointStatuses.length ? `${endpointOkCount}/${endpointStatuses.length}` : '–'}</div>
           </div>
         </div>
       </section>
@@ -142,10 +196,40 @@ export default function StatusPage() {
               </div>
             </div>
           </section>
+
+          <section className="list-card">
+            <div className="list-card-header">
+              <div>
+                <h2 className="section-title" style={{ marginBottom: 0 }}>Endpoint probes</h2>
+                <p className="section-subtitle">Rask sjekk av interne API-ruter.</p>
+              </div>
+              <div className="badge-soft">Routes</div>
+            </div>
+
+            <div className="metrics-grid" style={{ marginTop: 14 }}>
+              {endpointStatuses.length === 0 ? <div className="empty-box">Ingen probes lastet ennå.</div> : endpointStatuses.map((item) => (
+                <div key={item.path} className="metric-pill" style={{ textAlign: 'left' }}>
+                  <div className="metric-pill-label">{item.ok ? 'OK' : 'Feil'} · HTTP {item.status || '–'}</div>
+                  <div className="metric-pill-value">{item.name}</div>
+                  <p className="section-subtitle" style={{ marginTop: 8 }}>{item.path}</p>
+                </div>
+              ))}
+            </div>
+          </section>
         </div>
 
         <aside className="right-column">
           <section className="detail-card">
+            <h2 className="section-title">Tracker store</h2>
+            <p className="section-subtitle">
+              Storage: {trackerStats?.storageMode ?? '–'} · Pending: {trackerStats?.summary?.pendingCount ?? '–'} · Settled: {trackerStats?.summary?.settledCount ?? '–'}
+            </p>
+            <p className="section-subtitle">
+              Profit: {units(trackerStats?.summary?.profit)} · ROI: {pct(trackerStats?.summary?.roi)} · Hit rate: {pct(trackerStats?.summary?.hitRate)}
+            </p>
+          </section>
+
+          <section className="detail-card" style={{ marginTop: 16 }}>
             <h2 className="section-title">Premier League</h2>
             <p className="section-subtitle">
               League ID: {liveStatus?.apiFootballLeagueId ?? '–'} · Sesong: {liveStatus?.apiFootballSeason ?? '–'}
@@ -153,10 +237,8 @@ export default function StatusPage() {
           </section>
 
           <section className="detail-card" style={{ marginTop: 16 }}>
-            <h2 className="section-title">Tolkning</h2>
-            <p className="section-subtitle">
-              Hvis API-nøkler mangler, kan appen fortsatt fungere med mock eller fallback-data. Det er nyttig for utvikling, men bør merkes tydelig når modellen vurderes.
-            </p>
+            <h2 className="section-title">Sist sjekket</h2>
+            <p className="section-subtitle">{formatDate(health?.timestamp)}</p>
           </section>
         </aside>
       </section>
