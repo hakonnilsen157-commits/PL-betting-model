@@ -1,5 +1,5 @@
 import './globals.css';
-import type { Metadata } from 'next';
+import type { Metadata, Route } from 'next';
 import Link from 'next/link';
 
 export const metadata: Metadata = {
@@ -7,7 +7,12 @@ export const metadata: Metadata = {
   description: 'Vercel prototype for a Premier League betting model',
 };
 
-const navGroups = [
+type NavGroup = {
+  label: string;
+  links: Array<{ href: Route; label: string }>;
+};
+
+const navGroups: NavGroup[] = [
   {
     label: 'App',
     links: [
