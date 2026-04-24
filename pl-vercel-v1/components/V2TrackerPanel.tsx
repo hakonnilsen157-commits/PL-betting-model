@@ -51,6 +51,13 @@ type AutoSettledPick = SavedPickRow & {
   settledAt: string;
 };
 
+type SettledDisplayRow = TrackerRow & {
+  source: 'auto' | 'seed';
+  homeGoals?: number;
+  awayGoals?: number;
+  settledAt?: string;
+};
+
 type SettlementResponse = {
   ok: boolean;
   settled?: AutoSettledPick[];
@@ -170,7 +177,7 @@ function removeSettledFromSaved(saved: SavedPickRow[], settled: AutoSettledPick[
   return saved.filter((row) => !settledKeys.has(`${row.fixtureId}__${row.market}`));
 }
 
-function buildSeedSettledRows(): TrackerRow[] {
+function buildSeedSettledRows(): SettledDisplayRow[] {
   return trackerSeedPicks
     .map((pick) => {
       const result = trackerSeedResults.find((item) => item.fixtureId === pick.fixtureId);
@@ -185,9 +192,26 @@ function buildSeedSettledRows(): TrackerRow[] {
         expectedValue: pick.expectedValue,
         won,
         profit: won ? pick.bookmakerOdds - 1 : -1,
-      } satisfies TrackerRow;
+        source: 'seed',
+        homeGoals: result.homeGoals,
+        awayGoals: result.awayGoals,
+        settledAt: pick.kickoff,
+      } satisfies SettledDisplayRow;
     })
-    .filter((row): row is TrackerRow => row !== null);
+    .filter((row): row is SettledDisplayRow => row !== null);
+}
+
+function toJsonDownload(data: unknown) {
+  const json = JSON.stringify(data, null, 2);
+  const blob = new Blob([json], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `pl-tracker-export-${new Date().toISOString().slice(0, 10)}.json`;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
 }
 
 export default function V2TrackerPanel() {
@@ -238,7 +262,7 @@ export default function V2TrackerPanel() {
   }, [openPicks]);
 
   const seedSettledRows = useMemo(() => buildSeedSettledRows(), []);
-  const autoSettledRows = useMemo<TrackerRow[]>(() => settledHistory.map((row) => ({
+  const autoSettledRows = useMemo<SettledDisplayRow[]>(() => settledHistory.map((row) => ({
     fixtureId: row.fixtureId,
     match: row.match,
     market: row.market,
@@ -247,6 +271,10 @@ export default function V2TrackerPanel() {
     expectedValue: row.expectedValue,
     won: row.won,
     profit: row.profit,
+    source: 'auto',
+    homeGoals: row.homeGoals,
+    awayGoals: row.awayGoals,
+    settledAt: row.settledAt,
   })), [settledHistory]);
 
   const settledRows = useMemo(() => [...autoSettledRows, ...seedSettledRows], [autoSettledRows, seedSettledRows]);
@@ -255,12 +283,14 @@ export default function V2TrackerPanel() {
     const total = settledRows.length;
     const wins = settledRows.filter((row) => row.won).length;
     const profit = settledRows.reduce((sum, row) => sum + row.profit, 0);
+    const avgOdds = total > 0 ? settledRows.reduce((sum, row) => sum + row.odds, 0) / total : 0;
     return {
       total,
       wins,
       hitRate: total > 0 ? wins / total : 0,
       profit,
       roi: total > 0 ? profit / total : 0,
+      avgOdds,
     };
   }, [settledRows]);
 
@@ -326,6 +356,37 @@ export default function V2TrackerPanel() {
     }
   }
 
+  function resetOpenHistory() {
+    if (typeof window === 'undefined') return;
+    window.localStorage.removeItem(TRACKER_STORAGE_KEY);
+    setSavedHistory([]);
+    setLastSavedAt(null);
+    setSettlementStatus('Åpen historikk er nullstilt.');
+  }
+
+  function resetSettledHistory() {
+    if (typeof window === 'undefined') return;
+    window.localStorage.removeItem(SETTLED_STORAGE_KEY);
+    setSettledHistory([]);
+    setSettlementStatus('Auto-settled historikk er nullstilt. Seed-data beholdes som demo-grunnlag.');
+  }
+
+  function exportTrackerHistory() {
+    toJsonDownload({
+      exportedAt: new Date().toISOString(),
+      source: dashboard?.source,
+      openHistory: savedHistory,
+      autoSettledHistory: settledHistory,
+      seededSettledRows: seedSettledRows,
+      summary: {
+        settled: settledSummary,
+        open: openSummary,
+        saved: savedSummary,
+        settlementQueue: settlementSummary,
+      },
+    });
+  }
+
   return (
     <section className="hero-card">
       <div className="hero-topline">
@@ -333,7 +394,7 @@ export default function V2TrackerPanel() {
           <div className="eyebrow">Premier League Betting Model</div>
           <h1 className="hero-title">V2 Tracker</h1>
           <p className="hero-subtitle">
-            Refaktorert tracker-side med open picks, lokal historikk og settlement readiness.
+            Refaktorert tracker-side med open picks, lokal historikk, settlement readiness og auto-settlement.
           </p>
         </div>
         <div className="updated-at">Kilde: {dashboard?.source ?? 'laster...'}</div>
@@ -347,9 +408,12 @@ export default function V2TrackerPanel() {
           <div className="summary-card"><div className="summary-label">Profit</div><div className="summary-value green">{settledSummary.profit.toFixed(2)}u</div></div>
           <div className="summary-card"><div className="summary-label">ROI</div><div className="summary-value green">{pct(settledSummary.roi)}</div></div>
         </div>
-        <p className="section-subtitle" style={{ marginTop: 12 }}>
-          Auto-settled picks: {autoSettledRows.length} · Seeded demo picks: {seedSettledRows.length}
-        </p>
+        <div className="summary-grid" style={{ marginTop: 14 }}>
+          <div className="summary-card"><div className="summary-label">Auto-settled</div><div className="summary-value">{autoSettledRows.length}</div></div>
+          <div className="summary-card"><div className="summary-label">Seed demo</div><div className="summary-value">{seedSettledRows.length}</div></div>
+          <div className="summary-card"><div className="summary-label">Snittodds</div><div className="summary-value">{settledSummary.avgOdds.toFixed(2)}</div></div>
+          <div className="summary-card"><div className="summary-label">Status</div><div className="summary-value">Live</div></div>
+        </div>
       </div>
 
       <div className="info-panel" style={{ marginTop: 16 }}>
@@ -393,24 +457,47 @@ export default function V2TrackerPanel() {
           <div className="summary-card"><div className="summary-label">Eldste kickoff</div><div className="summary-value">{settlementSummary.oldest ? formatDate(settlementSummary.oldest) : '–'}</div></div>
           <div className="summary-card"><div className="summary-label">Neste steg</div><div className="summary-value">Auto</div></div>
         </div>
-        <div style={{ marginTop: 14 }}>
-          <button
-            type="button"
-            onClick={runSettlementCheck}
-            disabled={settlementLoading || settlementQueue.length === 0}
-            className="metric-pill"
-            style={{ cursor: settlementQueue.length === 0 ? 'not-allowed' : 'pointer' }}
-          >
-            {settlementLoading ? 'Sjekker...' : 'Kjør settlement-sjekk'}
+        <div className="metrics-grid" style={{ marginTop: 14 }}>
+          <button type="button" onClick={runSettlementCheck} disabled={settlementLoading || settlementQueue.length === 0} className="metric-pill" style={{ cursor: settlementQueue.length === 0 ? 'not-allowed' : 'pointer', textAlign: 'left' }}>
+            <div className="metric-pill-label">Handling</div>
+            <div className="metric-pill-value">{settlementLoading ? 'Sjekker...' : 'Kjør settlement-sjekk'}</div>
           </button>
-          {settlementStatus ? <p className="section-subtitle" style={{ marginTop: 12 }}>{settlementStatus}</p> : null}
+          <button type="button" onClick={exportTrackerHistory} className="metric-pill" style={{ cursor: 'pointer', textAlign: 'left' }}>
+            <div className="metric-pill-label">Eksport</div>
+            <div className="metric-pill-value">Last ned JSON</div>
+          </button>
+          <button type="button" onClick={resetOpenHistory} className="metric-pill" style={{ cursor: 'pointer', textAlign: 'left' }}>
+            <div className="metric-pill-label">Nullstill</div>
+            <div className="metric-pill-value">Open history</div>
+          </button>
+          <button type="button" onClick={resetSettledHistory} className="metric-pill" style={{ cursor: 'pointer', textAlign: 'left' }}>
+            <div className="metric-pill-label">Nullstill</div>
+            <div className="metric-pill-value">Auto-settled</div>
+          </button>
         </div>
+        {settlementStatus ? <p className="section-subtitle" style={{ marginTop: 12 }}>{settlementStatus}</p> : null}
         <div className="metrics-grid" style={{ marginTop: 14 }}>
           {settlementQueue.length === 0 ? <div className="empty-box">Ingen lagrede picks er klare for settlement akkurat nå.</div> : settlementQueue.slice(0, 5).map((row) => (
             <div key={`${row.fixtureId}-${row.market}-ready`} className="metric-pill" style={{ textAlign: 'left' }}>
               <div className="metric-pill-label">Ready · {row.market}</div>
               <div className="metric-pill-value">{row.match}</div>
               <div className="section-subtitle" style={{ marginTop: 8 }}>Kickoff {formatDate(row.kickoff)} · lagret {formatDate(row.savedAt)} · EV {pct(row.expectedValue)}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="info-panel" style={{ marginTop: 16 }}>
+        <h3>Settled history</h3>
+        <p className="section-subtitle">Viser både auto-settled picks og seedede demo-picks, med resultat og profit per pick.</p>
+        <div className="metrics-grid" style={{ marginTop: 14 }}>
+          {settledRows.length === 0 ? <div className="empty-box">Ingen settled picks ennå.</div> : settledRows.slice(0, 10).map((row) => (
+            <div key={`${row.fixtureId}-${row.market}-${row.source}`} className="metric-pill" style={{ textAlign: 'left' }}>
+              <div className="metric-pill-label">{row.source === 'auto' ? 'Auto' : 'Seed'} · {row.won ? 'Win' : 'Loss'} · {row.market}</div>
+              <div className="metric-pill-value">{row.match}</div>
+              <div className="section-subtitle" style={{ marginTop: 8 }}>
+                Resultat {typeof row.homeGoals === 'number' ? `${row.homeGoals}-${row.awayGoals}` : '–'} · Profit {row.profit > 0 ? '+' : ''}{row.profit.toFixed(2)}u · Odds {row.odds.toFixed(2)}
+              </div>
             </div>
           ))}
         </div>
