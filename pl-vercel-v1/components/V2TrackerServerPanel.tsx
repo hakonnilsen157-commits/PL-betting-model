@@ -57,12 +57,18 @@ type TrackerHistoryResponse = {
   error?: string;
 };
 
-type SettlementResponse = {
+type AutoSettlementResponse = {
   ok: boolean;
   settled?: SettledPickRow[];
   pending?: Array<SavedPickRow & { status?: string }>;
   unsupported?: Array<SavedPickRow & { reason?: string }>;
   checkedAt?: string;
+  store?: {
+    open: SavedPickRow[];
+    settled: SettledPickRow[];
+    updatedAt?: string;
+  };
+  message?: string;
   error?: string;
 };
 
@@ -292,35 +298,29 @@ export default function V2TrackerServerPanel() {
     }
   }
 
-  async function runSettlementCheck() {
-    if (settlementQueue.length === 0 || loading) return;
+  async function runAutoSettlementCheck() {
+    if (loading) return;
     setLoading(true);
-    setStatus('Sjekker resultater...');
+    setStatus('Kjører auto-settlement fra server-store...');
     try {
-      const settleResponse = await fetch('/api/tracker/settle', {
+      const response = await fetch('/api/tracker/auto-settle', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ picks: settlementQueue }),
       });
-      const settleJson = (await settleResponse.json()) as SettlementResponse;
-      if (!settleJson.ok) throw new Error(settleJson.error ?? 'Settlement feilet');
+      const json = (await response.json()) as AutoSettlementResponse;
+      if (!json.ok) throw new Error(json.error ?? 'Auto-settlement feilet');
 
-      if ((settleJson.settled ?? []).length > 0) {
-        const historyResponse = await fetch('/api/tracker/history', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ settled: settleJson.settled }),
-        });
-        const historyJson = (await historyResponse.json()) as TrackerHistoryResponse;
-        if (!historyJson.ok) throw new Error(historyJson.error ?? 'Kunne ikke lagre settled picks');
-        setOpenHistory(historyJson.open ?? []);
-        setSettledHistory(historyJson.settled ?? []);
-        setServerUpdatedAt(historyJson.updatedAt ?? null);
+      if (json.store) {
+        setOpenHistory(json.store.open ?? []);
+        setSettledHistory(json.store.settled ?? []);
+        setServerUpdatedAt(json.store.updatedAt ?? null);
+      } else {
+        await loadHistory();
       }
 
-      setStatus(`Sjekket ${settlementQueue.length} · ${(settleJson.settled ?? []).length} settled · ${(settleJson.pending ?? []).length} pending · ${(settleJson.unsupported ?? []).length} unsupported`);
+      setStatus(json.message ?? `Auto-sjekket · ${(json.settled ?? []).length} settled · ${(json.pending ?? []).length} pending · ${(json.unsupported ?? []).length} unsupported`);
     } catch (error) {
-      setStatus(error instanceof Error ? error.message : 'Ukjent settlement-feil');
+      setStatus(error instanceof Error ? error.message : 'Ukjent auto-settlement-feil');
     } finally {
       setLoading(false);
     }
@@ -421,7 +421,7 @@ export default function V2TrackerServerPanel() {
 
       <div className="info-panel" style={{ marginTop: 16 }}>
         <h3>Settlement queue</h3>
-        <p className="section-subtitle">Picks er klare når kickoff er passert med to timer. Klikk for å sjekke resultat og flytte til settled.</p>
+        <p className="section-subtitle">Picks er klare når kickoff er passert med to timer. Klikk for å kjøre auto-settlement fra server-store.</p>
         <div className="summary-grid" style={{ marginTop: 14 }}>
           <div className="summary-card"><div className="summary-label">Klar</div><div className="summary-value">{settlementSummary.total}</div></div>
           <div className="summary-card"><div className="summary-label">Snitt EV</div><div className="summary-value green">{pct(settlementSummary.avgEv)}</div></div>
@@ -429,9 +429,9 @@ export default function V2TrackerServerPanel() {
           <div className="summary-card"><div className="summary-label">Neste steg</div><div className="summary-value">Auto</div></div>
         </div>
         <div className="metrics-grid" style={{ marginTop: 14 }}>
-          <button type="button" onClick={runSettlementCheck} disabled={loading || settlementQueue.length === 0} className="metric-pill" style={{ cursor: settlementQueue.length === 0 ? 'not-allowed' : 'pointer', textAlign: 'left' }}>
+          <button type="button" onClick={runAutoSettlementCheck} disabled={loading || settlementQueue.length === 0} className="metric-pill" style={{ cursor: settlementQueue.length === 0 ? 'not-allowed' : 'pointer', textAlign: 'left' }}>
             <div className="metric-pill-label">Handling</div>
-            <div className="metric-pill-value">{loading ? 'Jobber...' : 'Kjør settlement-sjekk'}</div>
+            <div className="metric-pill-value">{loading ? 'Jobber...' : 'Kjør auto-settlement'}</div>
           </button>
           <button type="button" onClick={refreshServerHistory} className="metric-pill" style={{ cursor: 'pointer', textAlign: 'left' }}>
             <div className="metric-pill-label">Refresh</div>
