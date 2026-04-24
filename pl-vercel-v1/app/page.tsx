@@ -97,6 +97,16 @@ type TrackerRow = {
   profit: number;
 };
 
+type PendingTrackerRow = {
+  fixtureId: string;
+  match: string;
+  market: string;
+  odds: number;
+  confidence: number;
+  expectedValue: number;
+  kickoff: string;
+};
+
 function pct(v?: number) {
   if (typeof v !== 'number' || Number.isNaN(v)) return '–';
   return `${(v * 100).toFixed(1)}%`;
@@ -305,6 +315,18 @@ export default function Page() {
 
   const shortlist = useMemo(() => filteredRecommendations.slice(0, 3), [filteredRecommendations]);
   const trackerRows = useMemo(() => buildTrackerRows(), []);
+  const pendingTrackerRows = useMemo<PendingTrackerRow[]>(() => {
+    return filteredRecommendations.slice(0, 5).map((rec) => ({
+      fixtureId: rec.fixtureId,
+      match: rec.match,
+      market: formatMarket(rec.market),
+      odds: rec.bookmakerOdds,
+      confidence: rec.confidence,
+      expectedValue: rec.expectedValue,
+      kickoff: rec.kickoff,
+    }));
+  }, [filteredRecommendations]);
+
   const trackerSummary = useMemo(() => {
     const total = trackerRows.length;
     const wins = trackerRows.filter((row) => row.won).length;
@@ -313,6 +335,13 @@ export default function Page() {
     const roi = staked > 0 ? profit / staked : 0;
     return { total, wins, hitRate: total > 0 ? wins / total : 0, profit, roi };
   }, [trackerRows]);
+
+  const pendingSummary = useMemo(() => {
+    const total = pendingTrackerRows.length;
+    const avgConfidence = total > 0 ? pendingTrackerRows.reduce((sum, row) => sum + row.confidence, 0) / total : 0;
+    const avgEv = total > 0 ? pendingTrackerRows.reduce((sum, row) => sum + row.expectedValue, 0) / total : 0;
+    return { total, avgConfidence, avgEv };
+  }, [pendingTrackerRows]);
 
   const selectedFixture = useMemo(() => {
     if (!data?.fixtures?.length) return null;
@@ -359,9 +388,7 @@ export default function Page() {
 
           <div className="updated-at">
             Oppdatert:{' '}
-            {data?.generatedAt
-              ? new Date(data.generatedAt).toLocaleString('no-NO')
-              : '–'}
+            {data?.generatedAt ? new Date(data.generatedAt).toLocaleString('no-NO') : '–'}
           </div>
         </div>
 
@@ -378,8 +405,9 @@ export default function Page() {
         <div className="info-panel" style={{ marginTop: 20 }}>
           <h3>V2 tracker foundation</h3>
           <p>
-            Første steg i V2 er nå inne: en tracker-seksjon som viser hvordan anbefalinger kan spores mot resultat, treffrate og ROI. Denne første versjonen er seedet med tidligere picks som fundament før vi kobler på full historikklagring.
+            Første steg i V2 viser nå både avgjorte picks og åpne picks. Dette gjør tracker-flyten mer komplett før vi kobler på ekte historikklagring og automatisk settlement.
           </p>
+
           <div className="summary-grid" style={{ marginTop: 14 }}>
             <div className="summary-card">
               <div className="summary-label">Settled picks</div>
@@ -398,6 +426,48 @@ export default function Page() {
               <div className="summary-value green">{pct(trackerSummary.roi)}</div>
             </div>
           </div>
+
+          <div className="info-panel" style={{ marginTop: 16 }}>
+            <h3>Open picks snapshot</h3>
+            <p className="section-subtitle">
+              Dette er spillene som akkurat nå ville vært åpne i tracker-flyten og senere blitt flyttet til settled når kampene er ferdige.
+            </p>
+            <div className="summary-grid" style={{ marginTop: 14 }}>
+              <div className="summary-card">
+                <div className="summary-label">Åpne picks</div>
+                <div className="summary-value">{pendingSummary.total}</div>
+              </div>
+              <div className="summary-card">
+                <div className="summary-label">Snitt EV</div>
+                <div className="summary-value green">{pct(pendingSummary.avgEv)}</div>
+              </div>
+              <div className="summary-card">
+                <div className="summary-label">Snitt confidence</div>
+                <div className="summary-value">{pendingSummary.avgConfidence.toFixed(0)}/100</div>
+              </div>
+              <div className="summary-card">
+                <div className="summary-label">Status</div>
+                <div className="summary-value">Pending</div>
+              </div>
+            </div>
+
+            <div className="metrics-grid" style={{ marginTop: 14 }}>
+              {pendingTrackerRows.length === 0 ? (
+                <div className="empty-box">Ingen åpne picks akkurat nå innenfor filtrene.</div>
+              ) : (
+                pendingTrackerRows.map((row) => (
+                  <div key={`${row.fixtureId}-pending`} className="metric-pill" style={{ textAlign: 'left' }}>
+                    <div className="metric-pill-label">Pending · {row.market}</div>
+                    <div className="metric-pill-value">{row.match}</div>
+                    <div className="section-subtitle" style={{ marginTop: 8 }}>
+                      Kickoff {formatDate(row.kickoff)} · EV {pct(row.expectedValue)} · Confidence {row.confidence.toFixed(0)}/100
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+
           <div className="metrics-grid" style={{ marginTop: 14 }}>
             {trackerRows.slice(0, 3).map((row) => (
               <div key={row.fixtureId} className="metric-pill" style={{ textAlign: 'left' }}>
@@ -478,11 +548,7 @@ export default function Page() {
         <div className="filters-grid">
           <div>
             <label className="field-label">Marked</label>
-            <select
-              value={marketFilter}
-              onChange={(e) => setMarketFilter(e.target.value)}
-              className="select-input"
-            >
+            <select value={marketFilter} onChange={(e) => setMarketFilter(e.target.value)} className="select-input">
               <option value="all">Alle</option>
               <option value="home">Hjemmeseier</option>
               <option value="draw">Uavgjort</option>
@@ -496,15 +562,7 @@ export default function Page() {
 
           <div>
             <label className="field-label">Minimum EV: {pct(minEV)}</label>
-            <input
-              type="range"
-              min={0}
-              max={0.25}
-              step={0.005}
-              value={minEV}
-              onChange={(e) => setMinEV(Number(e.target.value))}
-              className="range-input"
-            />
+            <input type="range" min={0} max={0.25} step={0.005} value={minEV} onChange={(e) => setMinEV(Number(e.target.value))} className="range-input" />
           </div>
         </div>
       </section>
@@ -525,12 +583,7 @@ export default function Page() {
                 <div className="empty-box">Ingen anbefalinger passer filtrene akkurat nå. Prøv lavere EV-filter eller et annet marked.</div>
               ) : (
                 filteredRecommendations.slice(0, 10).map((rec, idx) => (
-                  <button
-                    key={`${rec.fixtureId}-${rec.market}`}
-                    onClick={() => setSelectedFixtureId(String(rec.fixtureId))}
-                    className="recommendation-card"
-                    style={cardBorderClass(rec.expectedValue)}
-                  >
+                  <button key={`${rec.fixtureId}-${rec.market}`} onClick={() => setSelectedFixtureId(String(rec.fixtureId))} className="recommendation-card" style={cardBorderClass(rec.expectedValue)}>
                     <div className="rec-topline">
                       <div>
                         <div className="rec-rank">#{idx + 1}</div>
@@ -540,27 +593,13 @@ export default function Page() {
                       <div className="ev-pill">EV {pct(rec.expectedValue)}</div>
                     </div>
 
-                    <div className="section-subtitle" style={{ marginTop: 10 }}>
-                      {buildRecommendationSummary(rec)}
-                    </div>
+                    <div className="section-subtitle" style={{ marginTop: 10 }}>{buildRecommendationSummary(rec)}</div>
 
                     <div className="metrics-grid">
-                      <div className="metric-pill">
-                        <div className="metric-pill-label">Odds</div>
-                        <div className="metric-pill-value">{rec.bookmakerOdds}</div>
-                      </div>
-                      <div className="metric-pill">
-                        <div className="metric-pill-label">Fair odds</div>
-                        <div className="metric-pill-value">{rec.fairOdds}</div>
-                      </div>
-                      <div className="metric-pill">
-                        <div className="metric-pill-label">Edge</div>
-                        <div className="metric-pill-value">{pct(rec.edge)}</div>
-                      </div>
-                      <div className="metric-pill">
-                        <div className="metric-pill-label">Confidence</div>
-                        <div className="metric-pill-value">{rec.confidence.toFixed(0)}/100</div>
-                      </div>
+                      <div className="metric-pill"><div className="metric-pill-label">Odds</div><div className="metric-pill-value">{rec.bookmakerOdds}</div></div>
+                      <div className="metric-pill"><div className="metric-pill-label">Fair odds</div><div className="metric-pill-value">{rec.fairOdds}</div></div>
+                      <div className="metric-pill"><div className="metric-pill-label">Edge</div><div className="metric-pill-value">{pct(rec.edge)}</div></div>
+                      <div className="metric-pill"><div className="metric-pill-label">Confidence</div><div className="metric-pill-value">{rec.confidence.toFixed(0)}/100</div></div>
                     </div>
                   </button>
                 ))
@@ -586,72 +625,33 @@ export default function Page() {
                 const strengthDiff = homeStrength - awayStrength;
 
                 return (
-                  <button
-                    key={fixture.id}
-                    onClick={() => setSelectedFixtureId(String(fixture.id))}
-                    className={`fixture-card ${active ? 'active' : ''}`}
-                  >
+                  <button key={fixture.id} onClick={() => setSelectedFixtureId(String(fixture.id))} className={`fixture-card ${active ? 'active' : ''}`}>
                     <div className="fixture-topline">
                       <div>
-                        <h3 className="match-name">
-                          {fixture.homeTeam} vs {fixture.awayTeam}
-                        </h3>
+                        <h3 className="match-name">{fixture.homeTeam} vs {fixture.awayTeam}</h3>
                         <div className="fixture-kickoff">{formatDate(fixture.kickoff)}</div>
                       </div>
-                      <div className="badge-soft">
-                        {formatMarket(fixture.topRecommendation?.market)}
-                      </div>
+                      <div className="badge-soft">{formatMarket(fixture.topRecommendation?.market)}</div>
                     </div>
 
-                    <div className="section-subtitle" style={{ marginTop: 10 }}>
-                      {buildFixtureVerdict(fixture)}
-                    </div>
+                    <div className="section-subtitle" style={{ marginTop: 10 }}>{buildFixtureVerdict(fixture)}</div>
 
                     <div className="metrics-grid three">
-                      <div className="metric-pill">
-                        <div className="metric-pill-label">EV</div>
-                        <div className="metric-pill-value">
-                          {pct(fixture.topRecommendation?.expectedValue)}
-                        </div>
-                      </div>
-                      <div className="metric-pill">
-                        <div className="metric-pill-label">Edge</div>
-                        <div className="metric-pill-value">
-                          {pct(fixture.topRecommendation?.edge)}
-                        </div>
-                      </div>
-                      <div className="metric-pill">
-                        <div className="metric-pill-label">Oddsgrunnlag</div>
-                        <div className="metric-pill-value">
-                          {oddsSourceLabel(fixture.latestOdds?.bookmaker)}
-                        </div>
-                      </div>
+                      <div className="metric-pill"><div className="metric-pill-label">EV</div><div className="metric-pill-value">{pct(fixture.topRecommendation?.expectedValue)}</div></div>
+                      <div className="metric-pill"><div className="metric-pill-label">Edge</div><div className="metric-pill-value">{pct(fixture.topRecommendation?.edge)}</div></div>
+                      <div className="metric-pill"><div className="metric-pill-label">Oddsgrunnlag</div><div className="metric-pill-value">{oddsSourceLabel(fixture.latestOdds?.bookmaker)}</div></div>
                     </div>
 
                     <div className="metrics-grid" style={{ marginTop: 10 }}>
-                      <div className="metric-pill">
-                        <div className="metric-pill-label">{fixture.homeTeam}</div>
-                        <div className="metric-pill-value">{homeStrength}/100 · {strengthLabel(homeStrength)}</div>
-                      </div>
-                      <div className="metric-pill">
-                        <div className="metric-pill-label">{fixture.awayTeam}</div>
-                        <div className="metric-pill-value">{awayStrength}/100 · {strengthLabel(awayStrength)}</div>
-                      </div>
+                      <div className="metric-pill"><div className="metric-pill-label">{fixture.homeTeam}</div><div className="metric-pill-value">{homeStrength}/100 · {strengthLabel(homeStrength)}</div></div>
+                      <div className="metric-pill"><div className="metric-pill-label">{fixture.awayTeam}</div><div className="metric-pill-value">{awayStrength}/100 · {strengthLabel(awayStrength)}</div></div>
                     </div>
 
                     <div className="section-subtitle" style={{ marginTop: 10 }}>
-                      {strengthDiff >= 8
-                        ? `${fixture.homeTeam} har et tydeligere grunnsignal i totalbildet.`
-                        : strengthDiff <= -8
-                        ? `${fixture.awayTeam} ser sterkere ut i totalbildet før pris vurderes.`
-                        : 'Lagene fremstår ganske jevne i styrkeprofilen.'}
+                      {strengthDiff >= 8 ? `${fixture.homeTeam} har et tydeligere grunnsignal i totalbildet.` : strengthDiff <= -8 ? `${fixture.awayTeam} ser sterkere ut i totalbildet før pris vurderes.` : 'Lagene fremstår ganske jevne i styrkeprofilen.'}
                     </div>
 
-                    {usingModelOdds ? (
-                      <div className="section-subtitle" style={{ marginTop: 10 }}>
-                        Viser modellodds fordi live bookmaker-feed er utilgjengelig akkurat nå.
-                      </div>
-                    ) : null}
+                    {usingModelOdds ? <div className="section-subtitle" style={{ marginTop: 10 }}>Viser modellodds fordi live bookmaker-feed er utilgjengelig akkurat nå.</div> : null}
                   </button>
                 );
               })}
@@ -659,11 +659,7 @@ export default function Page() {
           </section>
         </div>
 
-        <MatchDetailPanel
-          fixture={selectedFixture}
-          recommendations={selectedRecommendations}
-          source={data?.source}
-        />
+        <MatchDetailPanel fixture={selectedFixture} recommendations={selectedRecommendations} source={data?.source} />
       </section>
     </main>
   );
