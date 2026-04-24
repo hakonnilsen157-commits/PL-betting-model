@@ -34,6 +34,16 @@ const envVars = [
     value: '2025',
     description: 'Sesongen appen skal hente data for.',
   },
+  {
+    name: 'UPSTASH_REDIS_REST_URL',
+    value: 'secret URL',
+    description: 'Valgfri persistent tracker-lagring. Når denne settes, bruker tracker-store Redis i stedet for server-memory.',
+  },
+  {
+    name: 'UPSTASH_REDIS_REST_TOKEN',
+    value: 'secret token',
+    description: 'Token til Upstash Redis. Må settes sammen med UPSTASH_REDIS_REST_URL.',
+  },
 ];
 
 const setupSteps = [
@@ -41,8 +51,20 @@ const setupSteps = [
   'Åpne Settings og deretter Environment Variables.',
   'Legg inn API-nøkler som secrets, ikke direkte i koden.',
   'Sett DATA_MODE til ønsket modus.',
+  'Legg inn Upstash Redis-variablene hvis trackerhistorikk skal overleve nye deploys.',
   'Redeploy prosjektet etter at environment variables er lagret.',
-  'Sjekk Status-siden i appen etter deploy for å bekrefte at nøklene er registrert.',
+  'Sjekk Status-siden i appen etter deploy for å bekrefte at nøkler og tracker storage mode er registrert.',
+];
+
+const storageModes = [
+  {
+    title: 'server-memory',
+    text: 'Fungerer uten ekstra oppsett, men historikk kan forsvinne ved nye deploys eller serverless restart.',
+  },
+  {
+    title: 'upstash-redis',
+    text: 'Persistent lagring via Upstash Redis. Dette er bedre for V2-testing fordi trackerhistorikken kan overleve deploys.',
+  },
 ];
 
 export default function SetupPage() {
@@ -54,7 +76,7 @@ export default function SetupPage() {
             <div className="eyebrow">Premier League Betting Model</div>
             <h1 className="hero-title">Setup</h1>
             <p className="hero-subtitle">
-              En praktisk side for hvordan appen bør konfigureres i Vercel når den skal bruke live API-er og mer seriøse datakilder.
+              En praktisk side for hvordan appen bør konfigureres i Vercel når den skal bruke live API-er, persistent tracker og mer seriøse datakilder.
             </p>
           </div>
           <div className="updated-at">Configuration</div>
@@ -82,6 +104,26 @@ export default function SetupPage() {
               ))}
             </div>
           </section>
+
+          <section className="list-card">
+            <div className="list-card-header">
+              <div>
+                <h2 className="section-title" style={{ marginBottom: 0 }}>Storage modes</h2>
+                <p className="section-subtitle">Hvordan trackerhistorikken lagres i V2.</p>
+              </div>
+              <div className="badge-soft">Tracker</div>
+            </div>
+
+            <div className="metrics-grid" style={{ marginTop: 14 }}>
+              {storageModes.map((mode) => (
+                <div key={mode.title} className="metric-pill" style={{ textAlign: 'left' }}>
+                  <div className="metric-pill-label">Storage</div>
+                  <div className="metric-pill-value">{mode.title}</div>
+                  <p className="section-subtitle" style={{ marginTop: 8 }}>{mode.text}</p>
+                </div>
+              ))}
+            </div>
+          </section>
         </div>
 
         <aside className="right-column">
@@ -98,7 +140,7 @@ export default function SetupPage() {
           </section>
 
           <section className="warning-box">
-            API-nøkler skal aldri legges direkte i GitHub-repoet. De bør alltid lagres som environment variables eller secrets i Vercel.
+            API-nøkler og Redis-token skal aldri legges direkte i GitHub-repoet. De bør alltid lagres som environment variables eller secrets i Vercel.
           </section>
         </aside>
       </section>
