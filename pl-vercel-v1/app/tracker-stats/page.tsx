@@ -36,6 +36,12 @@ type TrackerStatsResponse = {
   error?: string;
 };
 
+type SeedResponse = {
+  ok?: boolean;
+  inserted?: number;
+  error?: string;
+};
+
 function pct(value?: number) {
   if (typeof value !== 'number' || Number.isNaN(value)) return '–';
   return `${(value * 100).toFixed(1)}%`;
@@ -58,6 +64,8 @@ function units(value?: number) {
 export default function TrackerStatsPage() {
   const [data, setData] = useState<TrackerStatsResponse | null>(null);
   const [loading, setLoading] = useState(true);
+  const [seeding, setSeeding] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   async function loadStats() {
@@ -73,6 +81,24 @@ export default function TrackerStatsPage() {
       setError(err instanceof Error ? err.message : 'Ukjent stats-feil');
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function seedDemoData() {
+    setSeeding(true);
+    setError(null);
+    setMessage(null);
+
+    try {
+      const response = await fetch('/api/tracker/seed-demo', { method: 'POST' });
+      const json = (await response.json()) as SeedResponse;
+      if (!json.ok) throw new Error(json.error ?? 'Kunne ikke legge inn demo-data');
+      setMessage(`Demo-data lagt inn: ${json.inserted ?? 0} rader`);
+      await loadStats();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Ukjent seed-feil');
+    } finally {
+      setSeeding(false);
     }
   }
 
@@ -94,11 +120,18 @@ export default function TrackerStatsPage() {
               En mer datadrevet stats-side som leser trackerhistorikk fra API-et og viser nøkkeltall for backtest, marked og datakvalitet.
             </p>
           </div>
-          <button type="button" onClick={loadStats} className="app-nav-link" disabled={loading}>
-            {loading ? 'Laster...' : 'Oppdater'}
-          </button>
+          <div className="app-nav-links">
+            <button type="button" onClick={loadStats} className="app-nav-link" disabled={loading}>
+              {loading ? 'Laster...' : 'Oppdater'}
+            </button>
+            <button type="button" onClick={seedDemoData} className="app-nav-link" disabled={seeding}>
+              {seeding ? 'Legger inn...' : 'Seed demo'}
+            </button>
+            <a href="/api/tracker/export?format=csv" className="app-nav-link">CSV export</a>
+          </div>
         </div>
 
+        {message ? <div className="info-panel"><p>{message}</p></div> : null}
         {error ? <div className="warning-box">{error}</div> : null}
 
         <div className="summary-grid" style={{ marginTop: 20 }}>
