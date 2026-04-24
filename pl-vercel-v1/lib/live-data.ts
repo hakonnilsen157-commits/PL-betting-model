@@ -11,6 +11,7 @@ const MAX_FIXTURES = Number(process.env.MAX_FIXTURES ?? '10');
 const FOOTBALL_DATA_COMPETITION = process.env.FOOTBALL_DATA_COMPETITION ?? 'PL';
 const STANDINGS_CACHE_TTL_MS = 90 * 1000;
 const FORM_CACHE_TTL_MS = 90 * 1000;
+const FIXTURES_CACHE_TTL_MS = 90 * 1000;
 const STALE_FIXTURE_BUFFER_MS = 3 * 60 * 60 * 1000;
 
 type OddsApiOutcome = { name: string; price: number; point?: number };
@@ -123,6 +124,7 @@ type CachedValue<T> = {
 type RuntimeCache = {
   standings?: CachedValue<Map<string, TeamContext>>;
   teamForm?: Map<number, CachedValue<TeamRecentData>>;
+  scheduledFixtures?: CachedValue<FootballDataMatch[]>;
 };
 
 const runtimeCache = globalThis as typeof globalThis & { __plBettingCache?: RuntimeCache };
@@ -159,6 +161,7 @@ function normalizeTeamName(name: string): string {
     .replace('Manchester City FC', 'Manchester City')
     .replace('Newcastle United FC', 'Newcastle United')
     .replace('Brighton & Hove Albion FC', 'Brighton and Hove Albion')
+    .replace('Brighton and Hove Albion FC', 'Brighton and Hove Albion')
     .replace('Leeds United FC', 'Leeds United')
     .replace('West Ham United FC', 'West Ham United')
     .trim();
@@ -180,6 +183,10 @@ function isUpcomingKickoff(kickoff: string | undefined) {
   const ts = new Date(kickoff).getTime();
   if (Number.isNaN(ts)) return false;
   return ts >= Date.now() - STALE_FIXTURE_BUFFER_MS;
+}
+
+function toDateOnly(date: Date) {
+  return date.toISOString().slice(0, 10);
 }
 
 async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
@@ -412,6 +419,59 @@ async function fetchStandingsMap(): Promise<{
   }
 }
 
+async function fetchUpcomingCompetitionMatches(): Promise<{
+  matches: FootballDataMatch[];
+  ok: boolean;
+  error?: string;
+  cacheHit?: boolean;
+  staleCacheUsed?: boolean;
+}> {
+  const cache = getCache();
+  const cached = cache.scheduledFixtures;
+
+  if (cached && isFresh(cached.timestamp, FIXTURES_CACHE_TTL_MS)) {
+    return { matches: cached.value, ok: true, cacheHit: true, staleCacheUsed: false };
+  }
+
+  try {
+    const now = new Date();
+    const end = new Date(now.getTime() + 21 * 24 * 60 * 60 * 1000);
+    const data = await fetchFootballDataJson<FootballDataMatchesResponse>(
+      `/competitions/${FOOTBALL_DATA_COMPETITION}/matches?dateFrom=${toDateOnly(now)}&dateTo=${toDateOnly(end)}`
+    );
+
+    const matches = (data.matches ?? [])
+      .filter((match) => isUpcomingKickoff(match.utcDate))
+      .filter((match) => !['FINISHED', 'AWARDED', 'CANCELLED', 'POSTPONED', 'SUSPENDED'].includes(match.status))
+      .sort((a, b) => new Date(a.utcDate).getTime() - new Date(b.utcDate).getTime());
+
+    cache.scheduledFixtures = {
+      value: matches,
+      timestamp: Date.now(),
+    };
+
+    return { matches, ok: true, cacheHit: false, staleCacheUsed: false };
+  } catch (error) {
+    if (cached) {
+      return {
+        matches: cached.value,
+        ok: true,
+        error: error instanceof Error ? error.message : 'Unknown football-data fixtures error',
+        cacheHit: false,
+        staleCacheUsed: true,
+      };
+    }
+
+    return {
+      matches: [],
+      ok: false,
+      error: error instanceof Error ? error.message : 'Unknown football-data fixtures error',
+      cacheHit: false,
+      staleCacheUsed: false,
+    };
+  }
+}
+
 async function enrichRecentFormForRelevantTeams(
   standingsMap: Map<string, TeamContext>,
   fixturesSource: Array<{ homeTeam: string; awayTeam: string }>
@@ -470,45 +530,33 @@ async function fetchLiveOddsSafe(): Promise<{
     return { events, ok: true };
   } catch (error) {
     return {
-      events: [], ok: false,
+      events: [],
+      ok: false,
       error: error instanceof Error ? error.message : 'Unknown odds error',
     };
   }
 }
 
-function fallbackFixturesFromStandings(standingsMap: Map<string, TeamContext>) {
-  const teams = Array.from(standingsMap.values())
-    .sort((a, b) => (a.rank ?? 999) - (b.rank ?? 999))
-    .slice(0, 10);
+function mapScheduledMatchToFixture(
+  match: FootballDataMatch,
+  standingsMap: Map<string, TeamContext>
+): MatchFixture & { homeContext?: TeamContext; awayContext?: TeamContext } {
+  const homeTeam = normalizeTeamName(match.homeTeam.shortName || match.homeTeam.name);
+  const awayTeam = normalizeTeamName(match.awayTeam.shortName || match.awayTeam.name);
 
-  const fixtures: Array<
-    MatchFixture & {
-      homeContext?: TeamContext;
-      awayContext?: TeamContext;
-    }
-  > = [];
-
-  for (let i = 0; i < teams.length - 1; i += 2) {
-    const home = teams[i];
-    const away = teams[i + 1];
-    if (!home || !away) continue;
-
-    fixtures.push({
-      id: `fallback-${home.teamId ?? home.teamName}-${away.teamId ?? away.teamName}`,
-      round: 34,
-      kickoff: new Date(Date.now() + (i + 1) * 60 * 60 * 1000).toISOString(),
-      homeTeam: home.teamName,
-      awayTeam: away.teamName,
-      daysRestHome: 6,
-      daysRestAway: 6,
-      injuriesHome: 0,
-      injuriesAway: 0,
-      homeContext: home,
-      awayContext: away,
-    });
-  }
-
-  return fixtures;
+  return {
+    id: `fd-${match.id}`,
+    round: match.matchday ?? 34,
+    kickoff: match.utcDate,
+    homeTeam,
+    awayTeam,
+    daysRestHome: 6,
+    daysRestAway: 6,
+    injuriesHome: 0,
+    injuriesAway: 0,
+    homeContext: standingsMap.get(homeTeam),
+    awayContext: standingsMap.get(awayTeam),
+  };
 }
 
 function buildModelOddsFromContext(
@@ -598,8 +646,9 @@ export async function getLiveDashboard(round?: number) {
   const { events: liveOdds, ok: oddsOk, error: oddsError } = await fetchLiveOddsSafe();
   const standingsResult = await fetchStandingsMap();
   const baseStandingsMap = standingsResult.map;
+  const scheduledResult = await fetchUpcomingCompetitionMatches();
 
-  if (!oddsOk && !standingsResult.ok) {
+  if (!oddsOk && !standingsResult.ok && !scheduledResult.ok) {
     const mock = buildFallbackFromMock(round);
     return {
       ...mock,
@@ -607,13 +656,18 @@ export async function getLiveDashboard(round?: number) {
         mode: 'mock-fallback',
         liveOddsCount: 0,
         standingsCount: 0,
+        scheduledFixturesCount: 0,
         recentFormTeamsCount: 0,
         oddsAvailable: false,
         oddsError: oddsError ?? null,
         footballDataAvailable: false,
         footballDataError: standingsResult.error ?? null,
+        scheduledFixturesAvailable: false,
+        scheduledFixturesError: scheduledResult.error ?? null,
         footballDataCacheHit: standingsResult.cacheHit ?? false,
         footballDataStaleCacheUsed: standingsResult.staleCacheUsed ?? false,
+        scheduledFixturesCacheHit: scheduledResult.cacheHit ?? false,
+        scheduledFixturesStaleCacheUsed: scheduledResult.staleCacheUsed ?? false,
         usingFallbackOdds: true,
         usingMockFallback: true,
         firstFixture: mock.fixtures[0] ?? null,
@@ -623,16 +677,14 @@ export async function getLiveDashboard(round?: number) {
   }
 
   const filteredLiveOdds = liveOdds.filter((event) => isUpcomingKickoff(event.commence_time));
+  const scheduledMatches = scheduledResult.matches.filter((match) => isUpcomingKickoff(match.utcDate));
 
   const fixtureSeed =
     filteredLiveOdds.length > 0
-      ? filteredLiveOdds.map((e) => ({
-          homeTeam: e.home_team,
-          awayTeam: e.away_team,
-        }))
-      : fallbackFixturesFromStandings(baseStandingsMap).map((f) => ({
-          homeTeam: f.homeTeam,
-          awayTeam: f.awayTeam,
+      ? filteredLiveOdds.map((e) => ({ homeTeam: e.home_team, awayTeam: e.away_team }))
+      : scheduledMatches.map((m) => ({
+          homeTeam: m.homeTeam.shortName || m.homeTeam.name,
+          awayTeam: m.awayTeam.shortName || m.awayTeam.name,
         }));
 
   const standingsMap = await enrichRecentFormForRelevantTeams(baseStandingsMap, fixtureSeed);
@@ -691,11 +743,11 @@ export async function getLiveDashboard(round?: number) {
       });
     }
   } else {
-    const fallbackFixtures = fallbackFixturesFromStandings(standingsMap)
-      .filter((fixture) => isUpcomingKickoff(fixture.kickoff))
-      .slice(0, MAX_FIXTURES);
+    const realFixtures = scheduledMatches
+      .slice(0, MAX_FIXTURES)
+      .map((match) => mapScheduledMatchToFixture(match, standingsMap));
 
-    for (const fixture of fallbackFixtures) {
+    for (const fixture of realFixtures) {
       mappedFixtures.push(fixture);
       mappedOdds.push(buildModelOddsFromContext(fixture));
     }
@@ -726,13 +778,18 @@ export async function getLiveDashboard(round?: number) {
       mode: oddsOk ? 'live' : 'partial-live',
       liveOddsCount: filteredLiveOdds.length,
       standingsCount: standingsMap.size,
+      scheduledFixturesCount: scheduledMatches.length,
       recentFormTeamsCount: Array.from(standingsMap.values()).filter((x) => !!x.form).length,
       oddsAvailable: oddsOk,
       oddsError: oddsError ?? null,
       footballDataAvailable: standingsResult.ok,
       footballDataError: standingsResult.error ?? null,
+      scheduledFixturesAvailable: scheduledResult.ok,
+      scheduledFixturesError: scheduledResult.error ?? null,
       footballDataCacheHit: standingsResult.cacheHit ?? false,
       footballDataStaleCacheUsed: standingsResult.staleCacheUsed ?? false,
+      scheduledFixturesCacheHit: scheduledResult.cacheHit ?? false,
+      scheduledFixturesStaleCacheUsed: scheduledResult.staleCacheUsed ?? false,
       usingFallbackOdds: !oddsOk,
       usingMockFallback: false,
       firstFixture: fixtureCards[0]
