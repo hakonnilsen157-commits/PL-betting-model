@@ -178,27 +178,30 @@ function removeSettledFromSaved(saved: SavedPickRow[], settled: AutoSettledPick[
 }
 
 function buildSeedSettledRows(): SettledDisplayRow[] {
-  return trackerSeedPicks
-    .map((pick) => {
-      const result = trackerSeedResults.find((item) => item.fixtureId === pick.fixtureId);
-      if (!result) return null;
-      const won = marketWon(pick.market, result.homeGoals, result.awayGoals);
-      return {
-        fixtureId: pick.fixtureId,
-        match: `${pick.homeTeam} vs ${pick.awayTeam}`,
-        market: formatMarket(pick.market),
-        odds: pick.bookmakerOdds,
-        confidence: pick.confidence,
-        expectedValue: pick.expectedValue,
-        won,
-        profit: won ? pick.bookmakerOdds - 1 : -1,
-        source: 'seed',
-        homeGoals: result.homeGoals,
-        awayGoals: result.awayGoals,
-        settledAt: pick.kickoff,
-      } satisfies SettledDisplayRow;
-    })
-    .filter((row): row is SettledDisplayRow => row !== null);
+  const rows: SettledDisplayRow[] = [];
+
+  for (const pick of trackerSeedPicks) {
+    const result = trackerSeedResults.find((item) => item.fixtureId === pick.fixtureId);
+    if (!result) continue;
+
+    const won = marketWon(pick.market, result.homeGoals, result.awayGoals);
+    rows.push({
+      fixtureId: pick.fixtureId,
+      match: `${pick.homeTeam} vs ${pick.awayTeam}`,
+      market: formatMarket(pick.market),
+      odds: pick.bookmakerOdds,
+      confidence: pick.confidence,
+      expectedValue: pick.expectedValue,
+      won,
+      profit: won ? pick.bookmakerOdds - 1 : -1,
+      source: 'seed',
+      homeGoals: result.homeGoals,
+      awayGoals: result.awayGoals,
+      settledAt: pick.kickoff,
+    });
+  }
+
+  return rows;
 }
 
 function toJsonDownload(data: unknown) {
