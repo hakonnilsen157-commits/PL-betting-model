@@ -42,7 +42,26 @@ type SavedPickRow = {
   snapshotId: string;
 };
 
+type AutoSettledPick = SavedPickRow & {
+  status: 'settled';
+  homeGoals: number;
+  awayGoals: number;
+  won: boolean;
+  profit: number;
+  settledAt: string;
+};
+
+type SettlementResponse = {
+  ok: boolean;
+  settled?: AutoSettledPick[];
+  pending?: Array<SavedPickRow & { status?: string }>;
+  unsupported?: Array<SavedPickRow & { reason?: string }>;
+  checkedAt?: string;
+  error?: string;
+};
+
 const TRACKER_STORAGE_KEY = 'pl-betting-model-v2-pick-history';
+const SETTLED_STORAGE_KEY = 'pl-betting-model-v2-settled-history';
 
 function pct(value?: number) {
   if (typeof value !== 'number' || Number.isNaN(value)) return '–';
@@ -102,16 +121,24 @@ function isSettlementReady(kickoff: string) {
   return Date.now() >= ts + 2 * 60 * 60 * 1000;
 }
 
-function readSavedHistory(): SavedPickRow[] {
+function readJsonArray<T>(key: string): T[] {
   if (typeof window === 'undefined') return [];
   try {
-    const raw = window.localStorage.getItem(TRACKER_STORAGE_KEY);
+    const raw = window.localStorage.getItem(key);
     if (!raw) return [];
     const parsed = JSON.parse(raw);
     return Array.isArray(parsed) ? parsed : [];
   } catch {
     return [];
   }
+}
+
+function readSavedHistory(): SavedPickRow[] {
+  return readJsonArray<SavedPickRow>(TRACKER_STORAGE_KEY);
+}
+
+function readSettledHistory(): AutoSettledPick[] {
+  return readJsonArray<AutoSettledPick>(SETTLED_STORAGE_KEY);
 }
 
 function dedupeRows(rows: SavedPickRow[]) {
@@ -126,7 +153,24 @@ function dedupeRows(rows: SavedPickRow[]) {
   return Array.from(map.values()).sort((a, b) => new Date(b.savedAt).getTime() - new Date(a.savedAt).getTime());
 }
 
-function buildSettledRows(): TrackerRow[] {
+function dedupeSettledRows(rows: AutoSettledPick[]) {
+  const map = new Map<string, AutoSettledPick>();
+  for (const row of rows) {
+    const key = `${row.fixtureId}__${row.market}`;
+    const existing = map.get(key);
+    if (!existing || new Date(row.settledAt).getTime() > new Date(existing.settledAt).getTime()) {
+      map.set(key, row);
+    }
+  }
+  return Array.from(map.values()).sort((a, b) => new Date(b.settledAt).getTime() - new Date(a.settledAt).getTime());
+}
+
+function removeSettledFromSaved(saved: SavedPickRow[], settled: AutoSettledPick[]) {
+  const settledKeys = new Set(settled.map((row) => `${row.fixtureId}__${row.market}`));
+  return saved.filter((row) => !settledKeys.has(`${row.fixtureId}__${row.market}`));
+}
+
+function buildSeedSettledRows(): TrackerRow[] {
   return trackerSeedPicks
     .map((pick) => {
       const result = trackerSeedResults.find((item) => item.fixtureId === pick.fixtureId);
@@ -149,7 +193,10 @@ function buildSettledRows(): TrackerRow[] {
 export default function V2TrackerPanel() {
   const [dashboard, setDashboard] = useState<DashboardResponse | null>(null);
   const [savedHistory, setSavedHistory] = useState<SavedPickRow[]>([]);
+  const [settledHistory, setSettledHistory] = useState<AutoSettledPick[]>([]);
   const [lastSavedAt, setLastSavedAt] = useState<string | null>(null);
+  const [settlementStatus, setSettlementStatus] = useState<string | null>(null);
+  const [settlementLoading, setSettlementLoading] = useState(false);
 
   useEffect(() => {
     async function load() {
@@ -161,6 +208,7 @@ export default function V2TrackerPanel() {
         source: json.source,
       });
       setSavedHistory(readSavedHistory());
+      setSettledHistory(readSettledHistory());
     }
 
     load().catch(console.error);
@@ -189,7 +237,20 @@ export default function V2TrackerPanel() {
     setLastSavedAt(new Date().toISOString());
   }, [openPicks]);
 
-  const settledRows = useMemo(() => buildSettledRows(), []);
+  const seedSettledRows = useMemo(() => buildSeedSettledRows(), []);
+  const autoSettledRows = useMemo<TrackerRow[]>(() => settledHistory.map((row) => ({
+    fixtureId: row.fixtureId,
+    match: row.match,
+    market: row.market,
+    odds: row.odds,
+    confidence: row.confidence,
+    expectedValue: row.expectedValue,
+    won: row.won,
+    profit: row.profit,
+  })), [settledHistory]);
+
+  const settledRows = useMemo(() => [...autoSettledRows, ...seedSettledRows], [autoSettledRows, seedSettledRows]);
+
   const settledSummary = useMemo(() => {
     const total = settledRows.length;
     const wins = settledRows.filter((row) => row.won).length;
@@ -221,7 +282,7 @@ export default function V2TrackerPanel() {
   }, [savedHistory]);
 
   const settlementQueue = useMemo(() => {
-    return savedHistory.filter((row) => isSettlementReady(row.kickoff)).slice(0, 5);
+    return savedHistory.filter((row) => isSettlementReady(row.kickoff)).slice(0, 10);
   }, [savedHistory]);
 
   const settlementSummary = useMemo(() => {
@@ -230,6 +291,40 @@ export default function V2TrackerPanel() {
     const oldest = settlementQueue.length ? settlementQueue[settlementQueue.length - 1].kickoff : null;
     return { total, avgEv, oldest };
   }, [settlementQueue]);
+
+  async function runSettlementCheck() {
+    if (settlementQueue.length === 0 || settlementLoading) return;
+    setSettlementLoading(true);
+    setSettlementStatus('Sjekker resultater...');
+
+    try {
+      const response = await fetch('/api/tracker/settle', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ picks: settlementQueue }),
+      });
+      const json = (await response.json()) as SettlementResponse;
+
+      if (!json.ok) {
+        setSettlementStatus(json.error ?? 'Settlement feilet.');
+        return;
+      }
+
+      const newlySettled = json.settled ?? [];
+      const mergedSettled = dedupeSettledRows([...readSettledHistory(), ...newlySettled]);
+      const remainingSaved = removeSettledFromSaved(readSavedHistory(), newlySettled);
+
+      window.localStorage.setItem(SETTLED_STORAGE_KEY, JSON.stringify(mergedSettled));
+      window.localStorage.setItem(TRACKER_STORAGE_KEY, JSON.stringify(remainingSaved));
+      setSettledHistory(mergedSettled);
+      setSavedHistory(remainingSaved);
+      setSettlementStatus(`Sjekket ${settlementQueue.length} picks · ${newlySettled.length} settled · ${(json.pending ?? []).length} pending · ${(json.unsupported ?? []).length} unsupported`);
+    } catch (error) {
+      setSettlementStatus(error instanceof Error ? error.message : 'Ukjent settlement-feil.');
+    } finally {
+      setSettlementLoading(false);
+    }
+  }
 
   return (
     <section className="hero-card">
@@ -252,6 +347,9 @@ export default function V2TrackerPanel() {
           <div className="summary-card"><div className="summary-label">Profit</div><div className="summary-value green">{settledSummary.profit.toFixed(2)}u</div></div>
           <div className="summary-card"><div className="summary-label">ROI</div><div className="summary-value green">{pct(settledSummary.roi)}</div></div>
         </div>
+        <p className="section-subtitle" style={{ marginTop: 12 }}>
+          Auto-settled picks: {autoSettledRows.length} · Seeded demo picks: {seedSettledRows.length}
+        </p>
       </div>
 
       <div className="info-panel" style={{ marginTop: 16 }}>
@@ -295,8 +393,20 @@ export default function V2TrackerPanel() {
           <div className="summary-card"><div className="summary-label">Eldste kickoff</div><div className="summary-value">{settlementSummary.oldest ? formatDate(settlementSummary.oldest) : '–'}</div></div>
           <div className="summary-card"><div className="summary-label">Neste steg</div><div className="summary-value">Auto</div></div>
         </div>
+        <div style={{ marginTop: 14 }}>
+          <button
+            type="button"
+            onClick={runSettlementCheck}
+            disabled={settlementLoading || settlementQueue.length === 0}
+            className="metric-pill"
+            style={{ cursor: settlementQueue.length === 0 ? 'not-allowed' : 'pointer' }}
+          >
+            {settlementLoading ? 'Sjekker...' : 'Kjør settlement-sjekk'}
+          </button>
+          {settlementStatus ? <p className="section-subtitle" style={{ marginTop: 12 }}>{settlementStatus}</p> : null}
+        </div>
         <div className="metrics-grid" style={{ marginTop: 14 }}>
-          {settlementQueue.length === 0 ? <div className="empty-box">Ingen lagrede picks er klare for settlement akkurat nå.</div> : settlementQueue.map((row) => (
+          {settlementQueue.length === 0 ? <div className="empty-box">Ingen lagrede picks er klare for settlement akkurat nå.</div> : settlementQueue.slice(0, 5).map((row) => (
             <div key={`${row.fixtureId}-${row.market}-ready`} className="metric-pill" style={{ textAlign: 'left' }}>
               <div className="metric-pill-label">Ready · {row.market}</div>
               <div className="metric-pill-value">{row.match}</div>
