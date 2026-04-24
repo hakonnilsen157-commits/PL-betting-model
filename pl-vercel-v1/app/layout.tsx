@@ -25,6 +25,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               <Link href="/" className="app-nav-link">Dashboard</Link>
               <Link href="/v2-tracker" className="app-nav-link">V2 Tracker</Link>
               <Link href="/data" className="app-nav-link">Data</Link>
+              <Link href="/database" className="app-nav-link">Database</Link>
               <Link href="/backtest" className="app-nav-link">Backtest</Link>
               <Link href="/risk" className="app-nav-link">Risk</Link>
               <Link href="/model" className="app-nav-link">Model</Link>
