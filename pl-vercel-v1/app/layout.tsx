@@ -1,5 +1,6 @@
 import './globals.css';
 import type { Metadata } from 'next';
+import Link from 'next/link';
 
 export const metadata: Metadata = {
   title: 'PL Betting Model V1',
@@ -9,7 +10,26 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body>
+        <header className="app-nav-wrap">
+          <nav className="app-nav" aria-label="Main navigation">
+            <Link href="/" className="app-brand">
+              <span className="app-brand-mark">PL</span>
+              <span>
+                <span className="app-brand-title">Betting Model</span>
+                <span className="app-brand-subtitle">Vercel prototype</span>
+              </span>
+            </Link>
+
+            <div className="app-nav-links">
+              <Link href="/" className="app-nav-link">Dashboard</Link>
+              <Link href="/v2-tracker" className="app-nav-link">V2 Tracker</Link>
+              <Link href="/roadmap" className="app-nav-link">Roadmap</Link>
+            </div>
+          </nav>
+        </header>
+        {children}
+      </body>
     </html>
   );
 }
