@@ -30,6 +30,7 @@ const navGroups = [
     label: 'Prosjekt',
     links: [
       { href: '/setup', label: 'Setup' },
+      { href: '/api-reference', label: 'API' },
       { href: '/roadmap', label: 'Roadmap' },
       { href: '/guide', label: 'Guide' },
       { href: '/glossary', label: 'Glossary' },
