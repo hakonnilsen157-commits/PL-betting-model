@@ -1,9 +1,9 @@
-import V2TrackerPanel from '@/components/V2TrackerPanel';
+import V2TrackerServerPanel from '@/components/V2TrackerServerPanel';
 
 export default function V2TrackerPage() {
   return (
     <main className="dashboard-shell">
-      <V2TrackerPanel />
+      <V2TrackerServerPanel />
     </main>
   );
 }
