@@ -1,16 +1,17 @@
 import { NextResponse } from 'next/server';
 import {
-  clearTrackerStore,
-  getTrackerStore,
-  mergeTrackerOpenRows,
-  mergeTrackerSettledRows,
-  replaceTrackerStore,
-  TrackerSavedPick,
-  TrackerSettledPick,
-} from '@/lib/tracker-store';
+  clearPersistentTrackerStore,
+  getPersistentTrackerStore,
+  getTrackerStorageMode,
+  mergePersistentOpenRows,
+  mergePersistentSettledRows,
+  replacePersistentTrackerStore,
+} from '@/lib/tracker-persistent-store';
+import { TrackerSavedPick, TrackerSettledPick } from '@/lib/tracker-store';
 
 export async function GET() {
-  return NextResponse.json({ ok: true, ...getTrackerStore() });
+  const store = await getPersistentTrackerStore();
+  return NextResponse.json({ ok: true, storageMode: getTrackerStorageMode(), ...store });
 }
 
 export async function POST(request: Request) {
@@ -20,14 +21,15 @@ export async function POST(request: Request) {
     const settled = Array.isArray(body?.settled) ? (body.settled as TrackerSettledPick[]) : [];
 
     if (body?.mode === 'replace') {
-      return NextResponse.json({ ok: true, ...replaceTrackerStore({ open, settled }) });
+      const store = await replacePersistentTrackerStore({ open, settled });
+      return NextResponse.json({ ok: true, storageMode: getTrackerStorageMode(), ...store });
     }
 
-    let store = getTrackerStore();
-    if (open.length) store = mergeTrackerOpenRows(open);
-    if (settled.length) store = mergeTrackerSettledRows(settled);
+    let store = await getPersistentTrackerStore();
+    if (open.length) store = await mergePersistentOpenRows(open);
+    if (settled.length) store = await mergePersistentSettledRows(settled);
 
-    return NextResponse.json({ ok: true, ...store });
+    return NextResponse.json({ ok: true, storageMode: getTrackerStorageMode(), ...store });
   } catch (error) {
     return NextResponse.json(
       { ok: false, error: error instanceof Error ? error.message : 'Unknown tracker history error' },
@@ -40,7 +42,8 @@ export async function DELETE(request: Request) {
   try {
     const body = await request.json().catch(() => ({}));
     const kind = body?.kind === 'settled' || body?.kind === 'all' ? body.kind : 'open';
-    return NextResponse.json({ ok: true, ...clearTrackerStore(kind) });
+    const store = await clearPersistentTrackerStore(kind);
+    return NextResponse.json({ ok: true, storageMode: getTrackerStorageMode(), ...store });
   } catch (error) {
     return NextResponse.json(
       { ok: false, error: error instanceof Error ? error.message : 'Unknown tracker clear error' },
