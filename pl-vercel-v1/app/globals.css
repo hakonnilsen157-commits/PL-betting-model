@@ -38,6 +38,92 @@ a {
   text-decoration: none;
 }
 
+.app-nav-wrap {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  padding: 14px 28px 0;
+  background: linear-gradient(180deg, rgba(247, 251, 255, 0.96) 0%, rgba(247, 251, 255, 0.78) 72%, rgba(247, 251, 255, 0) 100%);
+  backdrop-filter: blur(10px);
+}
+
+.app-nav {
+  max-width: 1440px;
+  margin: 0 auto;
+  background: rgba(255, 255, 255, 0.88);
+  border: 1px solid var(--line);
+  border-radius: 22px;
+  box-shadow: var(--shadow);
+  padding: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.app-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 8px;
+  border-radius: 16px;
+}
+
+.app-brand-mark {
+  width: 42px;
+  height: 42px;
+  border-radius: 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff;
+  background: linear-gradient(135deg, var(--accent) 0%, var(--accent-2) 100%);
+  font-weight: 900;
+  letter-spacing: -0.04em;
+}
+
+.app-brand-title,
+.app-brand-subtitle {
+  display: block;
+  line-height: 1.2;
+}
+
+.app-brand-title {
+  font-size: 15px;
+  font-weight: 900;
+}
+
+.app-brand-subtitle {
+  color: var(--muted);
+  font-size: 12px;
+  margin-top: 2px;
+}
+
+.app-nav-links {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.app-nav-link {
+  border: 1px solid transparent;
+  background: var(--panel-2);
+  color: var(--text);
+  border-radius: 999px;
+  padding: 10px 14px;
+  font-size: 14px;
+  font-weight: 800;
+  transition: border-color 0.15s ease, transform 0.15s ease, background 0.15s ease;
+}
+
+.app-nav-link:hover {
+  border-color: #9cc3f7;
+  background: #edf5ff;
+  transform: translateY(-1px);
+}
+
 .dashboard-shell {
   max-width: 1440px;
   margin: 0 auto;
@@ -755,6 +841,25 @@ a {
 
   .metrics-grid.three {
     grid-template-columns: 1fr;
+  }
+
+  .app-nav-wrap {
+    padding: 10px 16px 0;
+  }
+
+  .app-nav {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .app-nav-links {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .app-nav-link {
+    flex: 1;
+    text-align: center;
   }
 
   .dashboard-shell {
