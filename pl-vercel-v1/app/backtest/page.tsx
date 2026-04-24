@@ -1,25 +1,40 @@
-const metricCards = [
-  {
-    label: 'ROI',
-    value: 'Måles per marked',
-    description: 'ROI bør måles separat for 1X2, over/under og begge lag scorer.',
-  },
-  {
-    label: 'Hit rate',
-    value: 'Treffprosent',
-    description: 'Treffprosent må alltid vurderes sammen med odds og forventet verdi.',
-  },
-  {
-    label: 'CLV',
-    value: 'Closing line value',
-    description: 'Hvis modellen ofte slår closing line, er det et bedre signal enn enkelttreff.',
-  },
-  {
-    label: 'Sample size',
-    value: 'Antall picks',
-    description: 'Modellen bør ikke vurderes seriøst før den har nok historikk per marked.',
-  },
-];
+'use client';
+
+import { useEffect, useMemo, useState } from 'react';
+
+type TrackerStatsResponse = {
+  ok?: boolean;
+  storageMode?: string;
+  updatedAt?: string;
+  summary?: {
+    pendingCount: number;
+    settledCount: number;
+    wins: number;
+    hitRate: number;
+    profit: number;
+    roi: number;
+    avgOdds: number;
+    avgEv: number;
+    avgConfidence: number;
+  };
+  marketStats?: Array<{
+    market: string;
+    picks: number;
+    wins: number;
+    profit: number;
+    roi: number;
+    hitRate: number;
+    avgOdds: number;
+  }>;
+  qualityCounts?: Record<string, number>;
+  profitTrend?: Array<{
+    market: string;
+    settledAt?: string;
+    profit: number;
+    cumulative: number;
+  }>;
+  error?: string;
+};
 
 const backtestPlan = [
   'Lagre alle anbefalinger før kampstart med timestamp, marked, odds, EV og confidence.',
@@ -30,22 +45,71 @@ const backtestPlan = [
   'Sammenligne odds ved anbefaling med closing odds når dette er tilgjengelig.',
 ];
 
-const qualityBands = [
-  {
-    title: 'Grønn sone',
-    text: 'Live odds, live kampdata, høy EV, solid confidence og tydelig modellforklaring.',
-  },
-  {
-    title: 'Gul sone',
-    text: 'Delvis live data eller moderat confidence. Kan logges, men bør vurderes forsiktig.',
-  },
-  {
-    title: 'Rød sone',
-    text: 'Mock/fallback-data, lav confidence eller svak forklaring. Bør ikke brukes som ekte signal.',
-  },
-];
+function pct(value?: number) {
+  if (typeof value !== 'number' || Number.isNaN(value)) return '–';
+  return `${(value * 100).toFixed(1)}%`;
+}
+
+function units(value?: number) {
+  if (typeof value !== 'number' || Number.isNaN(value)) return '–';
+  return `${value > 0 ? '+' : ''}${value.toFixed(2)}u`;
+}
+
+function formatDate(value?: string) {
+  if (!value) return '–';
+  try {
+    return new Date(value).toLocaleString('no-NO');
+  } catch {
+    return value;
+  }
+}
+
+function sampleStatus(picks?: number) {
+  if (!picks) return 'Ingen data';
+  if (picks < 25) return 'For lite grunnlag';
+  if (picks < 100) return 'Tidlig signal';
+  return 'Mer robust grunnlag';
+}
 
 export default function BacktestPage() {
+  const [data, setData] = useState<TrackerStatsResponse | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  async function loadStats() {
+    setLoading(true);
+    setError(null);
+
+    try {
+      const response = await fetch('/api/tracker/stats', { cache: 'no-store' });
+      const json = (await response.json()) as TrackerStatsResponse;
+      if (!json.ok) throw new Error(json.error ?? 'Kunne ikke hente backtest-data');
+      setData(json);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Ukjent backtest-feil');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    loadStats();
+  }, []);
+
+  const summary = data?.summary;
+  const bestMarket = useMemo(() => {
+    const rows = data?.marketStats ?? [];
+    return rows.length ? [...rows].sort((a, b) => b.profit - a.profit)[0] : null;
+  }, [data]);
+
+  const weakestMarket = useMemo(() => {
+    const rows = data?.marketStats ?? [];
+    return rows.length ? [...rows].sort((a, b) => a.profit - b.profit)[0] : null;
+  }, [data]);
+
+  const qualityCounts = data?.qualityCounts ?? { green: 0, yellow: 0, red: 0 };
+  const totalQuality = (qualityCounts.green ?? 0) + (qualityCounts.yellow ?? 0) + (qualityCounts.red ?? 0);
+
   return (
     <main className="dashboard-shell">
       <section className="hero-card">
@@ -54,20 +118,37 @@ export default function BacktestPage() {
             <div className="eyebrow">Premier League Betting Model</div>
             <h1 className="hero-title">Backtest</h1>
             <p className="hero-subtitle">
-              En side for hvordan modellen bør måles over tid. Målet er å gå fra fine anbefalinger til faktisk dokumentert historikk.
+              Backtest-siden leser nå tracker stats API-et og viser faktisk historikk når picks er lagret eller seedet inn.
             </p>
           </div>
-          <div className="updated-at">Testing framework</div>
+          <button type="button" onClick={loadStats} className="app-nav-link" disabled={loading}>
+            {loading ? 'Laster...' : 'Oppdater'}
+          </button>
         </div>
 
+        {error ? <div className="warning-box">{error}</div> : null}
+
         <div className="summary-grid" style={{ marginTop: 20 }}>
-          {metricCards.map((card) => (
-            <div key={card.label} className="summary-card">
-              <div className="summary-label">{card.label}</div>
-              <div className="summary-value" style={{ fontSize: 22 }}>{card.value}</div>
-              <p className="section-subtitle" style={{ marginTop: 8 }}>{card.description}</p>
-            </div>
-          ))}
+          <div className="summary-card">
+            <div className="summary-label">ROI</div>
+            <div className="summary-value green">{pct(summary?.roi)}</div>
+            <p className="section-subtitle" style={{ marginTop: 8 }}>Profit {units(summary?.profit)} på {summary?.settledCount ?? 0} settled picks.</p>
+          </div>
+          <div className="summary-card">
+            <div className="summary-label">Hit rate</div>
+            <div className="summary-value">{pct(summary?.hitRate)}</div>
+            <p className="section-subtitle" style={{ marginTop: 8 }}>{summary?.wins ?? 0} wins av {summary?.settledCount ?? 0} settled.</p>
+          </div>
+          <div className="summary-card">
+            <div className="summary-label">Sample size</div>
+            <div className="summary-value">{summary?.settledCount ?? 0}</div>
+            <p className="section-subtitle" style={{ marginTop: 8 }}>{sampleStatus(summary?.settledCount)}</p>
+          </div>
+          <div className="summary-card">
+            <div className="summary-label">Storage</div>
+            <div className="summary-value" style={{ fontSize: 20 }}>{data?.storageMode ?? '–'}</div>
+            <p className="section-subtitle" style={{ marginTop: 8 }}>Sist oppdatert {formatDate(data?.updatedAt)}</p>
+          </div>
         </div>
       </section>
 
@@ -76,8 +157,32 @@ export default function BacktestPage() {
           <section className="list-card">
             <div className="list-card-header">
               <div>
+                <h2 className="section-title" style={{ marginBottom: 0 }}>Market performance</h2>
+                <p className="section-subtitle">Backtest-resultater splittet per marked.</p>
+              </div>
+              <div className="badge-soft">Markets</div>
+            </div>
+
+            <div className="metrics-grid" style={{ marginTop: 14 }}>
+              {(data?.marketStats ?? []).length === 0 ? (
+                <div className="empty-box">Ingen settled market stats ennå. Bruk Seed demo på Stats-siden eller la tracker samle historikk.</div>
+              ) : data?.marketStats?.map((row) => (
+                <div key={row.market} className="metric-pill" style={{ textAlign: 'left' }}>
+                  <div className="metric-pill-label">{row.picks} picks · {row.wins} wins</div>
+                  <div className="metric-pill-value">{row.market}</div>
+                  <p className="section-subtitle" style={{ marginTop: 8 }}>
+                    Profit {units(row.profit)} · ROI {pct(row.roi)} · Hit rate {pct(row.hitRate)} · Snittodds {row.avgOdds.toFixed(2)}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          <section className="list-card">
+            <div className="list-card-header">
+              <div>
                 <h2 className="section-title" style={{ marginBottom: 0 }}>Backtest-plan</h2>
-                <p className="section-subtitle">Hva som må logges for å vite om modellen faktisk har edge.</p>
+                <p className="section-subtitle">Hva som fortsatt må logges for å vite om modellen faktisk har edge.</p>
               </div>
               <div className="badge-soft">Historikk</div>
             </div>
@@ -91,40 +196,23 @@ export default function BacktestPage() {
               ))}
             </div>
           </section>
-
-          <section className="list-card">
-            <div className="list-card-header">
-              <div>
-                <h2 className="section-title" style={{ marginBottom: 0 }}>Datakvalitet</h2>
-                <p className="section-subtitle">Enkel fargekode for hvor mye tillit et signal bør få.</p>
-              </div>
-              <div className="badge-soft">Quality</div>
-            </div>
-
-            <div className="metrics-grid" style={{ marginTop: 14 }}>
-              {qualityBands.map((band) => (
-                <div key={band.title} className="metric-pill" style={{ textAlign: 'left' }}>
-                  <div className="metric-pill-label">Sone</div>
-                  <div className="metric-pill-value">{band.title}</div>
-                  <p className="section-subtitle" style={{ marginTop: 8 }}>{band.text}</p>
-                </div>
-              ))}
-            </div>
-          </section>
         </div>
 
         <aside className="right-column">
           <section className="detail-card">
-            <h2 className="section-title">Hvorfor backtest?</h2>
+            <h2 className="section-title">Backtest signal</h2>
             <p className="section-subtitle">
-              En modell kan se smart ut på enkeltkamper, men bare historikk viser om den faktisk har verdi. Backtest gjør at vi kan se hvilke markeder som fungerer og hvilke som bør fjernes.
+              Beste marked: {bestMarket ? `${bestMarket.market} (${units(bestMarket.profit)}, ROI ${pct(bestMarket.roi)})` : '–'}
+            </p>
+            <p className="section-subtitle">
+              Svakeste marked: {weakestMarket ? `${weakestMarket.market} (${units(weakestMarket.profit)}, ROI ${pct(weakestMarket.roi)})` : '–'}
             </p>
           </section>
 
           <section className="detail-card" style={{ marginTop: 16 }}>
-            <h2 className="section-title">Neste tekniske steg</h2>
+            <h2 className="section-title">Datakvalitet</h2>
             <p className="section-subtitle">
-              Det neste store løftet er å lagre anbefalinger i en database i stedet for bare lokalt i nettleseren. Da kan appen bygge ekte historikk over tid.
+              Grønn: {qualityCounts.green ?? 0} · Gul: {qualityCounts.yellow ?? 0} · Rød: {qualityCounts.red ?? 0} · Total: {totalQuality}
             </p>
           </section>
 
