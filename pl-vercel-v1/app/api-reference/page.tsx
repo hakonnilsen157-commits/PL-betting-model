@@ -54,6 +54,16 @@ const endpoints = [
     path: '/api/tracker/export?format=csv',
     purpose: 'Eksporterer trackerhistorikk som CSV.',
   },
+  {
+    method: 'GET',
+    path: '/api/tracker/seed-demo',
+    purpose: 'Forhåndsviser demo-rader som kan legges inn i tracker-store.',
+  },
+  {
+    method: 'POST',
+    path: '/api/tracker/seed-demo',
+    purpose: 'Legger demo-resultater inn i tracker-store for testing av stats og backtest.',
+  },
 ];
 
 const usageNotes = [
@@ -61,6 +71,7 @@ const usageNotes = [
   'Trackerhistorikk bør etter hvert lagres i persistent database eller Redis.',
   'Export-rutene gjør det enklere å hente historikk ut til Excel eller videre analyse.',
   'Stats-ruten bør bli grunnlaget for ekte backtest-dashboardet.',
+  'Seed-demo-ruten er kun for testing og bør ikke brukes som ekte modellhistorikk.',
 ];
 
 export default function ApiReferencePage() {
