@@ -107,6 +107,13 @@ type PendingTrackerRow = {
   kickoff: string;
 };
 
+type SavedPickRow = PendingTrackerRow & {
+  savedAt: string;
+  snapshotId: string;
+};
+
+const TRACKER_STORAGE_KEY = 'pl-betting-model-v2-pick-history';
+
 function pct(v?: number) {
   if (typeof v !== 'number' || Number.isNaN(v)) return '–';
   return `${(v * 100).toFixed(1)}%`;
@@ -259,12 +266,38 @@ function buildTrackerRows(): TrackerRow[] {
     .filter((row): row is TrackerRow => row !== null);
 }
 
+function safeReadSavedHistory(): SavedPickRow[] {
+  if (typeof window === 'undefined') return [];
+  try {
+    const raw = window.localStorage.getItem(TRACKER_STORAGE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function dedupeSavedRows(rows: SavedPickRow[]) {
+  const map = new Map<string, SavedPickRow>();
+  for (const row of rows) {
+    const key = `${row.fixtureId}__${row.market}`;
+    const existing = map.get(key);
+    if (!existing || new Date(row.savedAt).getTime() > new Date(existing.savedAt).getTime()) {
+      map.set(key, row);
+    }
+  }
+  return Array.from(map.values()).sort((a, b) => new Date(b.savedAt).getTime() - new Date(a.savedAt).getTime());
+}
+
 export default function Page() {
   const [data, setData] = useState<DashboardResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedFixtureId, setSelectedFixtureId] = useState<string | null>(null);
   const [marketFilter, setMarketFilter] = useState<string>('all');
   const [minEV, setMinEV] = useState<number>(0);
+  const [savedHistory, setSavedHistory] = useState<SavedPickRow[]>([]);
+  const [lastSavedAt, setLastSavedAt] = useState<string | null>(null);
 
   useEffect(() => {
     let mounted = true;
@@ -298,6 +331,7 @@ export default function Page() {
     }
 
     load();
+    setSavedHistory(safeReadSavedHistory());
 
     return () => {
       mounted = false;
@@ -327,6 +361,20 @@ export default function Page() {
     }));
   }, [filteredRecommendations]);
 
+  useEffect(() => {
+    if (typeof window === 'undefined' || pendingTrackerRows.length === 0) return;
+    const snapshotId = data?.generatedAt ?? new Date().toISOString();
+    const rowsToSave: SavedPickRow[] = pendingTrackerRows.map((row) => ({
+      ...row,
+      savedAt: new Date().toISOString(),
+      snapshotId,
+    }));
+    const merged = dedupeSavedRows([...safeReadSavedHistory(), ...rowsToSave]);
+    window.localStorage.setItem(TRACKER_STORAGE_KEY, JSON.stringify(merged));
+    setSavedHistory(merged);
+    setLastSavedAt(new Date().toISOString());
+  }, [pendingTrackerRows, data?.generatedAt]);
+
   const trackerSummary = useMemo(() => {
     const total = trackerRows.length;
     const wins = trackerRows.filter((row) => row.won).length;
@@ -342,6 +390,13 @@ export default function Page() {
     const avgEv = total > 0 ? pendingTrackerRows.reduce((sum, row) => sum + row.expectedValue, 0) / total : 0;
     return { total, avgConfidence, avgEv };
   }, [pendingTrackerRows]);
+
+  const savedHistorySummary = useMemo(() => {
+    const total = savedHistory.length;
+    const uniqueMatches = new Set(savedHistory.map((row) => row.match)).size;
+    const latest = savedHistory[0]?.savedAt ?? null;
+    return { total, uniqueMatches, latest };
+  }, [savedHistory]);
 
   const selectedFixture = useMemo(() => {
     if (!data?.fixtures?.length) return null;
@@ -405,7 +460,7 @@ export default function Page() {
         <div className="info-panel" style={{ marginTop: 20 }}>
           <h3>V2 tracker foundation</h3>
           <p>
-            Første steg i V2 viser nå både avgjorte picks og åpne picks. Dette gjør tracker-flyten mer komplett før vi kobler på ekte historikklagring og automatisk settlement.
+            Første steg i V2 viser nå både avgjorte picks og åpne picks. I tillegg lagres åpne picks lokalt i nettleseren som første historie-lag før vi kobler på full serverlagring og automatisk settlement.
           </p>
 
           <div className="summary-grid" style={{ marginTop: 14 }}>
@@ -461,6 +516,51 @@ export default function Page() {
                     <div className="metric-pill-value">{row.match}</div>
                     <div className="section-subtitle" style={{ marginTop: 8 }}>
                       Kickoff {formatDate(row.kickoff)} · EV {pct(row.expectedValue)} · Confidence {row.confidence.toFixed(0)}/100
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+
+          <div className="info-panel" style={{ marginTop: 16 }}>
+            <h3>Lokal historikklagring</h3>
+            <p className="section-subtitle">
+              Dette er første mellomsteg før ekte backend-lagring. Nettleseren lagrer åpne picks lokalt slik at du kan bygge opp en enkel historikk mellom besøk på samme enhet.
+            </p>
+            <div className="summary-grid" style={{ marginTop: 14 }}>
+              <div className="summary-card">
+                <div className="summary-label">Lagrede picks</div>
+                <div className="summary-value">{savedHistorySummary.total}</div>
+              </div>
+              <div className="summary-card">
+                <div className="summary-label">Unike kamper</div>
+                <div className="summary-value">{savedHistorySummary.uniqueMatches}</div>
+              </div>
+              <div className="summary-card">
+                <div className="summary-label">Sist lagret</div>
+                <div className="summary-value">{savedHistorySummary.latest ? formatDate(savedHistorySummary.latest) : '–'}</div>
+              </div>
+              <div className="summary-card">
+                <div className="summary-label">Lagringslag</div>
+                <div className="summary-value">Browser</div>
+              </div>
+            </div>
+            {lastSavedAt ? (
+              <p className="section-subtitle" style={{ marginTop: 12 }}>
+                Snapshot oppdatert lokalt: {formatDate(lastSavedAt)}
+              </p>
+            ) : null}
+            <div className="metrics-grid" style={{ marginTop: 14 }}>
+              {savedHistory.length === 0 ? (
+                <div className="empty-box">Ingen historikk lagret lokalt ennå.</div>
+              ) : (
+                savedHistory.slice(0, 4).map((row) => (
+                  <div key={`${row.fixtureId}-${row.market}-saved`} className="metric-pill" style={{ textAlign: 'left' }}>
+                    <div className="metric-pill-label">Saved · {row.market}</div>
+                    <div className="metric-pill-value">{row.match}</div>
+                    <div className="section-subtitle" style={{ marginTop: 8 }}>
+                      Lagret {formatDate(row.savedAt)} · EV {pct(row.expectedValue)} · Confidence {row.confidence.toFixed(0)}/100
                     </div>
                   </div>
                 ))
