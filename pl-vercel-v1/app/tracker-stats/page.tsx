@@ -42,6 +42,11 @@ type SeedResponse = {
   error?: string;
 };
 
+type ClearResponse = {
+  ok?: boolean;
+  error?: string;
+};
+
 function pct(value?: number) {
   if (typeof value !== 'number' || Number.isNaN(value)) return '–';
   return `${(value * 100).toFixed(1)}%`;
@@ -65,6 +70,7 @@ export default function TrackerStatsPage() {
   const [data, setData] = useState<TrackerStatsResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [seeding, setSeeding] = useState(false);
+  const [clearing, setClearing] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -102,6 +108,28 @@ export default function TrackerStatsPage() {
     }
   }
 
+  async function clearTrackerHistory() {
+    setClearing(true);
+    setError(null);
+    setMessage(null);
+
+    try {
+      const response = await fetch('/api/tracker/history', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ kind: 'all' }),
+      });
+      const json = (await response.json()) as ClearResponse;
+      if (!json.ok) throw new Error(json.error ?? 'Kunne ikke nullstille trackerhistorikk');
+      setMessage('Trackerhistorikk er nullstilt.');
+      await loadStats();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Ukjent reset-feil');
+    } finally {
+      setClearing(false);
+    }
+  }
+
   useEffect(() => {
     loadStats();
   }, []);
@@ -126,6 +154,9 @@ export default function TrackerStatsPage() {
             </button>
             <button type="button" onClick={seedDemoData} className="app-nav-link" disabled={seeding}>
               {seeding ? 'Legger inn...' : 'Seed demo'}
+            </button>
+            <button type="button" onClick={clearTrackerHistory} className="app-nav-link" disabled={clearing}>
+              {clearing ? 'Nullstiller...' : 'Reset store'}
             </button>
             <a href="/api/tracker/export?format=csv" className="app-nav-link">CSV export</a>
           </div>
