@@ -220,3 +220,113 @@ export const latestOdds: OddsLine[] = [
     capturedAt: '2026-04-22T08:00:00Z',
   }
 ];
+
+export type TrackerSeedPick = {
+  fixtureId: string;
+  kickoff: string;
+  homeTeam: string;
+  awayTeam: string;
+  market: 'home' | 'draw' | 'away' | 'over2_5' | 'under2_5' | 'btts_yes' | 'btts_no';
+  bookmakerOdds: number;
+  modelProbability: number;
+  expectedValue: number;
+  confidence: number;
+  note: string;
+};
+
+export type TrackerSeedResult = {
+  fixtureId: string;
+  homeGoals: number;
+  awayGoals: number;
+};
+
+export const trackerSeedPicks: TrackerSeedPick[] = [
+  {
+    fixtureId: 'seed-bou-lee-20260422-away',
+    kickoff: '2026-04-22T19:00:00Z',
+    homeTeam: 'Bournemouth',
+    awayTeam: 'Leeds United',
+    market: 'away',
+    bookmakerOdds: 5.5,
+    modelProbability: 0.2009,
+    expectedValue: 0.1049,
+    confidence: 38.16,
+    note: 'Seeded prior pick for tracker foundation',
+  },
+  {
+    fixtureId: 'seed-ful-avl-20260425-home',
+    kickoff: '2026-04-25T11:30:00Z',
+    homeTeam: 'Fulham',
+    awayTeam: 'Aston Villa',
+    market: 'home',
+    bookmakerOdds: 2.5,
+    modelProbability: 0.4319,
+    expectedValue: 0.0796,
+    confidence: 53.07,
+    note: 'Seeded prior pick for tracker foundation',
+  },
+  {
+    fixtureId: 'seed-bre-whu-20260502-away',
+    kickoff: '2026-05-02T14:00:00Z',
+    homeTeam: 'Brentford',
+    awayTeam: 'West Ham United',
+    market: 'away',
+    bookmakerOdds: 3.75,
+    modelProbability: 0.3233,
+    expectedValue: 0.2124,
+    confidence: 51.87,
+    note: 'Seeded prior pick for tracker foundation',
+  },
+  {
+    fixtureId: 'seed-avl-tot-20260503-away',
+    kickoff: '2026-05-03T18:00:00Z',
+    homeTeam: 'Aston Villa',
+    awayTeam: 'Tottenham',
+    market: 'away',
+    bookmakerOdds: 3.25,
+    modelProbability: 0.3484,
+    expectedValue: 0.1323,
+    confidence: 63.35,
+    note: 'Seeded prior pick for tracker foundation',
+  },
+  {
+    fixtureId: 'seed-avl-tot-20260503-over',
+    kickoff: '2026-05-03T18:00:00Z',
+    homeTeam: 'Aston Villa',
+    awayTeam: 'Tottenham',
+    market: 'over2_5',
+    bookmakerOdds: 1.95,
+    modelProbability: 0.5333,
+    expectedValue: 0.04,
+    confidence: 61.33,
+    note: 'Seeded prior pick for tracker foundation',
+  },
+];
+
+export const trackerSeedResults: TrackerSeedResult[] = [
+  {
+    fixtureId: 'seed-bou-lee-20260422-away',
+    homeGoals: 1,
+    awayGoals: 2,
+  },
+  {
+    fixtureId: 'seed-ful-avl-20260425-home',
+    homeGoals: 3,
+    awayGoals: 1,
+  },
+  {
+    fixtureId: 'seed-bre-whu-20260502-away',
+    homeGoals: 2,
+    awayGoals: 0,
+  },
+  {
+    fixtureId: 'seed-avl-tot-20260503-away',
+    homeGoals: 1,
+    awayGoals: 2,
+  },
+  {
+    fixtureId: 'seed-avl-tot-20260503-over',
+    homeGoals: 1,
+    awayGoals: 2,
+  },
+];
