@@ -47,6 +47,15 @@ type ClearResponse = {
   error?: string;
 };
 
+type AutoSettleResponse = {
+  ok?: boolean;
+  settled?: unknown[];
+  pending?: unknown[];
+  unsupported?: unknown[];
+  message?: string;
+  error?: string;
+};
+
 function pct(value?: number) {
   if (typeof value !== 'number' || Number.isNaN(value)) return '–';
   return `${(value * 100).toFixed(1)}%`;
@@ -71,6 +80,7 @@ export default function TrackerStatsPage() {
   const [loading, setLoading] = useState(true);
   const [seeding, setSeeding] = useState(false);
   const [clearing, setClearing] = useState(false);
+  const [autoSettling, setAutoSettling] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -105,6 +115,24 @@ export default function TrackerStatsPage() {
       setError(err instanceof Error ? err.message : 'Ukjent seed-feil');
     } finally {
       setSeeding(false);
+    }
+  }
+
+  async function runAutoSettlement() {
+    setAutoSettling(true);
+    setError(null);
+    setMessage(null);
+
+    try {
+      const response = await fetch('/api/tracker/auto-settle', { method: 'POST' });
+      const json = (await response.json()) as AutoSettleResponse;
+      if (!json.ok) throw new Error(json.error ?? 'Kunne ikke kjøre auto-settlement');
+      setMessage(json.message ?? `Auto-settlement: ${(json.settled ?? []).length} settled · ${(json.pending ?? []).length} pending · ${(json.unsupported ?? []).length} unsupported`);
+      await loadStats();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Ukjent auto-settlement-feil');
+    } finally {
+      setAutoSettling(false);
     }
   }
 
@@ -154,6 +182,9 @@ export default function TrackerStatsPage() {
             </button>
             <button type="button" onClick={seedDemoData} className="app-nav-link" disabled={seeding}>
               {seeding ? 'Legger inn...' : 'Seed demo'}
+            </button>
+            <button type="button" onClick={runAutoSettlement} className="app-nav-link" disabled={autoSettling}>
+              {autoSettling ? 'Kjører...' : 'Auto-settle'}
             </button>
             <button type="button" onClick={clearTrackerHistory} className="app-nav-link" disabled={clearing}>
               {clearing ? 'Nullstiller...' : 'Reset store'}
