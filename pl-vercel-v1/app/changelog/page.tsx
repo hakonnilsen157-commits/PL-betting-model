@@ -1,5 +1,17 @@
 const changes = [
   {
+    version: 'V2.20',
+    title: 'Upstash og persistent testing',
+    items: [
+      'Lagt til /upstash-setup med steg-for-steg oppsett av Upstash Redis i Vercel.',
+      'Lagt til /persistent-test for å bekrefte at trackerhistorikk overlever redeploy.',
+      'Koblet Upstash setup og Persistent test inn i menyen under Prosjekt.',
+      'Oppdatert Deploy checklist med Upstash-verifisering, Redis-sjekk og flere feilsøkingspunkter.',
+      'Oppdatert Guide med 13-stegs arbeidsflyt, Upstash guide og Persistent test guide.',
+      'Oppdatert QA med Upstash flow, Persistent test flow og redeploy-test av open/settled rows.',
+    ],
+  },
+  {
     version: 'V2.19',
     title: 'Deploy checklist og testflyt',
     items: [
