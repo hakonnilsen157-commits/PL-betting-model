@@ -1,54 +1,58 @@
 const steps = [
   {
-    title: '1. Sjekk deploy først',
+    title: '1. Les Release notes',
+    text: 'Start med Release notes for å få kort oversikt over siste versjon, testrekkefølge og hva som er viktigst å sjekke.',
+  },
+  {
+    title: '2. Sjekk deploy først',
     text: 'Bruk Deploy checklist etter hver Vercel deploy. Den gir deg riktig rekkefølge for test og feilsøking.',
   },
   {
-    title: '2. Sett opp Upstash når du er klar',
+    title: '3. Sett opp Upstash når du er klar',
     text: 'Bruk Upstash setup for å legge persistent Redis-lagring inn i Vercel slik at trackerhistorikken overlever deploy.',
   },
   {
-    title: '3. Test persistent lagring',
+    title: '4. Test persistent lagring',
     text: 'Bruk Persistent test etter Upstash-oppsett for å bekrefte at historikk overlever redeploy.',
   },
   {
-    title: '4. Start med Test lab',
+    title: '5. Start med Test lab',
     text: 'Bruk Test lab når du vil prøve V2 raskt. Der kan du kjøre snapshot, demo-data, auto-settle, reset, API probes og export fra samme sted.',
   },
   {
-    title: '5. Start med Dashboard',
+    title: '6. Start med Dashboard',
     text: 'Bruk dashboardet for å se kamper, beste anbefalinger, EV, confidence og modellens korte forklaring per spill.',
   },
   {
-    title: '6. Filtrer på marked og EV',
+    title: '7. Filtrer på marked og EV',
     text: 'Juster marked og minimum EV for å se om det finnes færre, men tydeligere verdi-cases.',
   },
   {
-    title: '7. Lagre server snapshot i V2 Tracker',
+    title: '8. Lagre server snapshot i V2 Tracker',
     text: 'V2 Tracker bruker server snapshot API-et for å bygge og lagre anbefalinger til tracker-store.',
   },
   {
-    title: '8. Følg pending og settled',
+    title: '9. Følg pending og settled',
     text: 'Tracker-siden viser pending picks, settled historikk, datakvalitet, eksport og auto-settlement handlinger.',
   },
   {
-    title: '9. Bruk Stats',
+    title: '10. Bruk Stats',
     text: 'Stats-siden viser ROI, hit rate, market stats, profit trend og gir deg knapper for seed demo, auto-settle, reset og eksport.',
   },
   {
-    title: '10. Bruk Quality',
+    title: '11. Bruk Quality',
     text: 'Quality-siden viser hvilke tracker-rader som har svak datakvalitet, manglende felt, lav EV eller lav confidence.',
   },
   {
-    title: '11. Bruk Insights',
+    title: '12. Bruk Insights',
     text: 'Insights-siden oppsummerer trackerhistorikken og foreslår neste tiltak basert på ROI, sample size, marked og datakvalitet.',
   },
   {
-    title: '12. Bruk Diagnostics',
+    title: '13. Bruk Diagnostics',
     text: 'Diagnostics-siden gir en readiness score og viser om tracker-oppsettet er klart for mer seriøs testing.',
   },
   {
-    title: '13. Sjekk Status ved feil',
+    title: '14. Sjekk Status ved feil',
     text: 'Status-siden viser health, API probes, storage mode, Redis ping, tracker store, quality score, insights, diagnostics og om API-nøkler er satt.',
   },
 ];
@@ -62,6 +66,7 @@ const rules = [
 ];
 
 const workflow = [
+  'Release notes: få kort oversikt over siste versjon og anbefalt testrekkefølge.',
   'Deploy checklist: sjekk at ny Vercel deploy er klar og testbar.',
   'Upstash setup: sett opp persistent Redis når du vil at historikk skal overleve deploy.',
   'Persistent test: bekreft at trackerhistorikken fortsatt finnes etter redeploy.',
@@ -74,6 +79,12 @@ const workflow = [
   'Diagnostics: sjekk om tracker-oppsettet er klart for seriøs testing.',
   'Status: sjekk storage mode, Redis ping og API health hvis noe virker rart.',
   'Backtest: vurder hvilke markeder som faktisk fungerer over tid.',
+];
+
+const releaseGuide = [
+  'Bruk Release notes når du vil se hva siste versjon inneholder uten å lese hele changeloggen.',
+  'Release notes peker deg videre til riktig testrekkefølge.',
+  'Siden er ment som startside for testing etter større endringer.',
 ];
 
 const deployGuide = [
@@ -150,9 +161,9 @@ export default function GuidePage() {
             <div className="list-card-header">
               <div>
                 <h2 className="section-title" style={{ marginBottom: 0 }}>Slik bruker du appen</h2>
-                <p className="section-subtitle">En enkel flyt fra deploy-test og Redis-oppsett til analyse, logging, stats, quality, insights, diagnostics og storage check.</p>
+                <p className="section-subtitle">En enkel flyt fra release notes og deploy-test til Redis-oppsett, analyse, logging, stats, quality, insights, diagnostics og storage check.</p>
               </div>
-              <div className="badge-soft">13 steg</div>
+              <div className="badge-soft">14 steg</div>
             </div>
 
             <div className="metrics-grid" style={{ marginTop: 14 }}>
@@ -177,6 +188,25 @@ export default function GuidePage() {
 
             <div className="reason-list">
               {workflow.map((item, index) => (
+                <div key={item} className="reason-card">
+                  <span className="reason-number">{index + 1}</span>
+                  <div className="metric-pill-value">{item}</div>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          <section className="list-card">
+            <div className="list-card-header">
+              <div>
+                <h2 className="section-title" style={{ marginBottom: 0 }}>Release notes guide</h2>
+                <p className="section-subtitle">Kort oversikt over siste versjon og hvordan den bør testes.</p>
+              </div>
+              <div className="badge-soft">Release</div>
+            </div>
+
+            <div className="reason-list">
+              {releaseGuide.map((item, index) => (
                 <div key={item} className="reason-card">
                   <span className="reason-number">{index + 1}</span>
                   <div className="metric-pill-value">{item}</div>
@@ -342,6 +372,13 @@ export default function GuidePage() {
 
         <aside className="right-column">
           <section className="detail-card">
+            <h2 className="section-title">Hva betyr Release notes?</h2>
+            <p className="section-subtitle">
+              Release notes gir deg kortversjonen av siste versjon, hva som er lagt til og hvilken testrekkefølge du bør bruke.
+            </p>
+          </section>
+
+          <section className="detail-card" style={{ marginTop: 16 }}>
             <h2 className="section-title">Hva betyr Deploy checklist?</h2>
             <p className="section-subtitle">
               Deploy checklist er siden du bruker rett etter Vercel har bygget ny versjon. Den hjelper deg å teste raskt og strukturert.
