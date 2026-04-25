@@ -9,16 +9,17 @@ const phases = [
     ],
   },
   {
-    title: 'Fase 2: Tracker, stats, quality, insights, diagnostics og backtest',
+    title: 'Fase 2: Tracker, stats, quality, insights, diagnostics, test lab og backtest',
     status: 'Nesten ferdig',
     items: [
+      'Test lab samler snapshot, seed demo, auto-settle, reset, API probes, tracker summary og export på én side',
       'V2 Tracker bruker server snapshot API og tracker-store i stedet for lokal bygging i klienten',
       'Stats-siden viser ROI, hit rate, market stats og profittrend fra API',
       'Quality-siden viser quality score, issue counts og svakeste tracker-rader',
       'Insights-siden foreslår neste tiltak basert på ROI, sample size, market performance og datakvalitet',
       'Diagnostics-siden viser readiness score, readiness checks og issues for tracker-oppsettet',
       'Backtest-siden bruker nå både tracker stats og tracker insights for å vise historikk og modelltiltak samlet',
-      'Guide forklarer nå hele flyten fra Dashboard til Tracker, Stats, Quality, Insights, Status og Backtest',
+      'Guide og QA forklarer nå hvordan Test lab brukes til rask V2-testing',
       'Seed demo, reset store, auto-settle og CSV/JSON export er tilgjengelig fra UI',
     ],
   },
@@ -71,7 +72,7 @@ export default function RoadmapPage() {
         <div className="summary-grid" style={{ marginTop: 20 }}>
           <div className="summary-card">
             <div className="summary-label">Nåværende status</div>
-            <div className="summary-value">V2.16</div>
+            <div className="summary-value">V2.18</div>
           </div>
           <div className="summary-card">
             <div className="summary-label">Deploy</div>
