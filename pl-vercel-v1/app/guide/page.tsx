@@ -4,43 +4,47 @@ const steps = [
     text: 'Bruk Deploy checklist etter hver Vercel deploy. Den gir deg riktig rekkefølge for test og feilsøking.',
   },
   {
-    title: '2. Start med Test lab',
+    title: '2. Sett opp Upstash når du er klar',
+    text: 'Bruk Upstash setup for å legge persistent Redis-lagring inn i Vercel slik at trackerhistorikken overlever deploy.',
+  },
+  {
+    title: '3. Start med Test lab',
     text: 'Bruk Test lab når du vil prøve V2 raskt. Der kan du kjøre snapshot, demo-data, auto-settle, reset, API probes og export fra samme sted.',
   },
   {
-    title: '3. Start med Dashboard',
+    title: '4. Start med Dashboard',
     text: 'Bruk dashboardet for å se kamper, beste anbefalinger, EV, confidence og modellens korte forklaring per spill.',
   },
   {
-    title: '4. Filtrer på marked og EV',
+    title: '5. Filtrer på marked og EV',
     text: 'Juster marked og minimum EV for å se om det finnes færre, men tydeligere verdi-cases.',
   },
   {
-    title: '5. Lagre server snapshot i V2 Tracker',
+    title: '6. Lagre server snapshot i V2 Tracker',
     text: 'V2 Tracker bruker server snapshot API-et for å bygge og lagre anbefalinger til tracker-store.',
   },
   {
-    title: '6. Følg pending og settled',
+    title: '7. Følg pending og settled',
     text: 'Tracker-siden viser pending picks, settled historikk, datakvalitet, eksport og auto-settlement handlinger.',
   },
   {
-    title: '7. Bruk Stats',
+    title: '8. Bruk Stats',
     text: 'Stats-siden viser ROI, hit rate, market stats, profit trend og gir deg knapper for seed demo, auto-settle, reset og eksport.',
   },
   {
-    title: '8. Bruk Quality',
+    title: '9. Bruk Quality',
     text: 'Quality-siden viser hvilke tracker-rader som har svak datakvalitet, manglende felt, lav EV eller lav confidence.',
   },
   {
-    title: '9. Bruk Insights',
+    title: '10. Bruk Insights',
     text: 'Insights-siden oppsummerer trackerhistorikken og foreslår neste tiltak basert på ROI, sample size, marked og datakvalitet.',
   },
   {
-    title: '10. Bruk Diagnostics',
+    title: '11. Bruk Diagnostics',
     text: 'Diagnostics-siden gir en readiness score og viser om tracker-oppsettet er klart for mer seriøs testing.',
   },
   {
-    title: '11. Sjekk Status ved feil',
+    title: '12. Sjekk Status ved feil',
     text: 'Status-siden viser health, API probes, storage mode, Redis ping, tracker store, quality score, insights, diagnostics og om API-nøkler er satt.',
   },
 ];
@@ -55,6 +59,7 @@ const rules = [
 
 const workflow = [
   'Deploy checklist: sjekk at ny Vercel deploy er klar og testbar.',
+  'Upstash setup: sett opp persistent Redis når du vil at historikk skal overleve deploy.',
   'Test lab: rask test av snapshot, seed demo, auto-settle, reset, probes og export.',
   'Dashboard: finn mulige verdi-cases.',
   'V2 Tracker: lagre server snapshot og følg pending/settled.',
@@ -71,6 +76,14 @@ const deployGuide = [
   'Åpne Deploy checklist etter deploy og følg punktene derfra.',
   'Start gjerne med Quick test og Test lab for rask verifisering.',
   'Hvis noe feiler, gå til Status, Diagnostics og API reference før du endrer kode.',
+];
+
+const upstashGuide = [
+  'Bruk Upstash setup-siden når du skal gjøre trackerhistorikken persistent.',
+  'Legg bare REST URL og REST TOKEN inn som environment variables i Vercel.',
+  'Redeploy appen etter at variablene er lagt inn.',
+  'Bekreft at storageMode blir upstash-redis i Status eller /api/tracker/storage-status.',
+  'Test at historikken overlever redeploy før du bruker den seriøst.',
 ];
 
 const testLabGuide = [
@@ -124,9 +137,9 @@ export default function GuidePage() {
             <div className="list-card-header">
               <div>
                 <h2 className="section-title" style={{ marginBottom: 0 }}>Slik bruker du appen</h2>
-                <p className="section-subtitle">En enkel flyt fra deploy-test til analyse, logging, stats, quality, insights, diagnostics og storage check.</p>
+                <p className="section-subtitle">En enkel flyt fra deploy-test og Redis-oppsett til analyse, logging, stats, quality, insights, diagnostics og storage check.</p>
               </div>
-              <div className="badge-soft">11 steg</div>
+              <div className="badge-soft">12 steg</div>
             </div>
 
             <div className="metrics-grid" style={{ marginTop: 14 }}>
@@ -170,6 +183,25 @@ export default function GuidePage() {
 
             <div className="reason-list">
               {deployGuide.map((item, index) => (
+                <div key={item} className="reason-card">
+                  <span className="reason-number">{index + 1}</span>
+                  <div className="metric-pill-value">{item}</div>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          <section className="list-card">
+            <div className="list-card-header">
+              <div>
+                <h2 className="section-title" style={{ marginBottom: 0 }}>Upstash guide</h2>
+                <p className="section-subtitle">Hvordan du kobler på persistent trackerhistorikk.</p>
+              </div>
+              <div className="badge-soft">Redis</div>
+            </div>
+
+            <div className="reason-list">
+              {upstashGuide.map((item, index) => (
                 <div key={item} className="reason-card">
                   <span className="reason-number">{index + 1}</span>
                   <div className="metric-pill-value">{item}</div>
@@ -281,6 +313,13 @@ export default function GuidePage() {
             <h2 className="section-title">Hva betyr Deploy checklist?</h2>
             <p className="section-subtitle">
               Deploy checklist er siden du bruker rett etter Vercel har bygget ny versjon. Den hjelper deg å teste raskt og strukturert.
+            </p>
+          </section>
+
+          <section className="detail-card" style={{ marginTop: 16 }}>
+            <h2 className="section-title">Hva betyr Upstash setup?</h2>
+            <p className="section-subtitle">
+              Upstash setup forklarer hvordan trackerhistorikken kan lagres persistent i Redis i stedet for midlertidig server-memory.
             </p>
           </section>
 
