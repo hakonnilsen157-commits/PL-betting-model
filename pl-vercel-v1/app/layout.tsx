@@ -1,4 +1,5 @@
 import './globals.css';
+import './nav.css';
 import type { Metadata, Route } from 'next';
 import Link from 'next/link';
 
@@ -52,9 +53,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en">
       <body>
-        <header className="app-nav-wrap">
-          <nav className="app-nav" aria-label="Main navigation">
-            <Link href="/" className="app-brand">
+        <header className="app-nav-wrap compact-nav-wrap">
+          <nav className="app-nav compact-nav" aria-label="Main navigation">
+            <Link href="/" className="app-brand compact-brand">
               <span className="app-brand-mark">PL</span>
               <span>
                 <span className="app-brand-title">Betting Model</span>
@@ -62,20 +63,27 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               </span>
             </Link>
 
-            <div className="app-nav-groups">
-              {navGroups.map((group) => (
-                <div key={group.label} className="app-nav-group">
-                  <span className="app-nav-group-label">{group.label}</span>
-                  <div className="app-nav-links">
-                    {group.links.map((link) => (
-                      <Link key={link.href} href={link.href} className="app-nav-link">
-                        {link.label}
-                      </Link>
-                    ))}
+            <details className="app-menu">
+              <summary className="app-menu-button">
+                <span className="app-menu-icon" aria-hidden="true">☰</span>
+                <span>Meny</span>
+              </summary>
+
+              <div className="app-menu-panel">
+                {navGroups.map((group) => (
+                  <div key={group.label} className="app-menu-group">
+                    <span className="app-nav-group-label">{group.label}</span>
+                    <div className="app-menu-links">
+                      {group.links.map((link) => (
+                        <Link key={link.href} href={link.href} className="app-nav-link app-menu-link">
+                          {link.label}
+                        </Link>
+                      ))}
+                    </div>
                   </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            </details>
           </nav>
         </header>
         {children}
