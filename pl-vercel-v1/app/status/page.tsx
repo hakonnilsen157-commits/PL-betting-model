@@ -31,6 +31,17 @@ type TrackerStatsResponse = {
   };
 };
 
+type TrackerQualityResponse = {
+  ok?: boolean;
+  summary?: {
+    totalRows: number;
+    avgScore: number;
+    greenRows: number;
+    yellowRows: number;
+    redRows: number;
+  };
+};
+
 type EndpointStatus = {
   name: string;
   path: string;
@@ -74,6 +85,7 @@ export default function StatusPage() {
   const [health, setHealth] = useState<HealthResponse | null>(null);
   const [liveStatus, setLiveStatus] = useState<LiveStatusResponse | null>(null);
   const [trackerStats, setTrackerStats] = useState<TrackerStatsResponse | null>(null);
+  const [trackerQuality, setTrackerQuality] = useState<TrackerQualityResponse | null>(null);
   const [endpointStatuses, setEndpointStatuses] = useState<EndpointStatus[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -83,28 +95,32 @@ export default function StatusPage() {
     setError(null);
 
     try {
-      const [healthResponse, liveStatusResponse, trackerStatsResponse, probes] = await Promise.all([
+      const [healthResponse, liveStatusResponse, trackerStatsResponse, trackerQualityResponse, probes] = await Promise.all([
         fetch('/api/health', { cache: 'no-store' }),
         fetch('/api/live-status', { cache: 'no-store' }),
         fetch('/api/tracker/stats', { cache: 'no-store' }),
+        fetch('/api/tracker/quality', { cache: 'no-store' }),
         Promise.all([
           probeEndpoint('Fixtures', '/api/fixtures'),
           probeEndpoint('Tracker history', '/api/tracker/history'),
           probeEndpoint('Tracker stats', '/api/tracker/stats'),
+          probeEndpoint('Tracker quality', '/api/tracker/quality'),
           probeEndpoint('Tracker export', '/api/tracker/export'),
           probeEndpoint('Seed demo preview', '/api/tracker/seed-demo'),
         ]),
       ]);
 
-      const [healthJson, liveStatusJson, trackerStatsJson] = await Promise.all([
+      const [healthJson, liveStatusJson, trackerStatsJson, trackerQualityJson] = await Promise.all([
         healthResponse.json(),
         liveStatusResponse.json(),
         trackerStatsResponse.json(),
+        trackerQualityResponse.json(),
       ]);
 
       setHealth(healthJson);
       setLiveStatus(liveStatusJson);
       setTrackerStats(trackerStatsJson);
+      setTrackerQuality(trackerQualityJson);
       setEndpointStatuses(probes);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Ukjent statusfeil');
@@ -134,7 +150,7 @@ export default function StatusPage() {
             <div className="eyebrow">Premier League Betting Model</div>
             <h1 className="hero-title">Systemstatus</h1>
             <p className="hero-subtitle">
-              En teknisk status-side som viser app health, datamodus, tracker-store, API-ruter og om live API-nøkler er konfigurert.
+              En teknisk status-side som viser app health, datamodus, tracker-store, quality score, API-ruter og om live API-nøkler er konfigurert.
             </p>
           </div>
           <button type="button" onClick={loadStatus} className="app-nav-link" disabled={loading}>
@@ -156,8 +172,8 @@ export default function StatusPage() {
             <div className="summary-value">{liveStatus?.dataMode ?? health?.dataMode ?? '–'}</div>
           </div>
           <div className="summary-card">
-            <div className="summary-label">Datakvalitet</div>
-            <div className="summary-value">{dataQuality}</div>
+            <div className="summary-label">Quality score</div>
+            <div className="summary-value green">{trackerQuality?.summary?.avgScore ?? '–'}</div>
           </div>
           <div className="summary-card">
             <div className="summary-label">API probes</div>
@@ -187,8 +203,8 @@ export default function StatusPage() {
                 <div className="summary-value">{yesNo(liveStatus?.hasApiFootballKey)}</div>
               </div>
               <div className="summary-card">
-                <div className="summary-label">Sport key</div>
-                <div className="summary-value" style={{ fontSize: 20 }}>{liveStatus?.oddsSportKey ?? '–'}</div>
+                <div className="summary-label">Datakvalitet</div>
+                <div className="summary-value" style={{ fontSize: 20 }}>{dataQuality}</div>
               </div>
               <div className="summary-card">
                 <div className="summary-label">Odds regioner</div>
@@ -230,9 +246,9 @@ export default function StatusPage() {
           </section>
 
           <section className="detail-card" style={{ marginTop: 16 }}>
-            <h2 className="section-title">Premier League</h2>
+            <h2 className="section-title">Quality mix</h2>
             <p className="section-subtitle">
-              League ID: {liveStatus?.apiFootballLeagueId ?? '–'} · Sesong: {liveStatus?.apiFootballSeason ?? '–'}
+              Total rows: {trackerQuality?.summary?.totalRows ?? '–'} · Green: {trackerQuality?.summary?.greenRows ?? 0} · Yellow: {trackerQuality?.summary?.yellowRows ?? 0} · Red: {trackerQuality?.summary?.redRows ?? 0}
             </p>
           </section>
 
