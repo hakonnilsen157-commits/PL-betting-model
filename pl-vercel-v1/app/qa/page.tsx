@@ -1,5 +1,13 @@
 const qaChecks = [
   {
+    title: 'Deploy checklist fungerer',
+    description: 'Deploy checklist skal vise steg for test etter Vercel deploy, feilsøking og snarveier til testsider.',
+  },
+  {
+    title: 'Quick test fungerer',
+    description: 'Quick test skal vise kort testrekkefølge, forventet resultat og GitHub issue #2-informasjon.',
+  },
+  {
     title: 'Test lab fungerer',
     description: 'Test lab skal vise API probes og knapper for snapshot, seed demo, auto-settle, reset og export.',
   },
@@ -52,6 +60,8 @@ const qaChecks = [
 const deployChecks = [
   'Sjekk at nyeste deployment i Vercel står som Ready.',
   'Kontroller at commit-hashen i Vercel matcher siste commit i GitHub.',
+  'Åpne Deploy checklist etter deploy.',
+  'Åpne Quick test og følg testrekkefølgen.',
   'Åpne Test lab i inkognito eller ny fane etter deploy.',
   'Trykk Oppdater alt i Test lab og sjekk at API probes er OK.',
   'Test Dashboard, Test lab, V2 Tracker, Stats, Quality, Insights, Diagnostics, Status og Changelog etter større endringer.',
@@ -71,6 +81,15 @@ const apiChecks = [
   '/api/tracker/insights skal returnere summary, marketInsights og recommendations.',
   '/api/tracker/export skal returnere tracker-store som JSON.',
   '/api/tracker/export?format=csv skal laste ned CSV.',
+];
+
+const deployFlowChecks = [
+  'Åpne /deploy-checklist.',
+  'Sjekk at siden forklarer deploy-test og feilsøking.',
+  'Klikk videre til Quick test.',
+  'Klikk videre til Test lab.',
+  'Bruk Status eller Diagnostics hvis noe feiler.',
+  'Oppdater GitHub issue #2 etter manuell test.',
 ];
 
 const testLabFlowChecks = [
@@ -146,6 +165,25 @@ export default function QAPage() {
                   <div className="metric-pill-label">Sjekk</div>
                   <div className="metric-pill-value">{check.title}</div>
                   <p className="section-subtitle" style={{ marginTop: 8 }}>{check.description}</p>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          <section className="list-card">
+            <div className="list-card-header">
+              <div>
+                <h2 className="section-title" style={{ marginBottom: 0 }}>Deploy flow</h2>
+                <p className="section-subtitle">Rask testrekkefølge etter Vercel deploy.</p>
+              </div>
+              <div className="badge-soft">Deploy</div>
+            </div>
+
+            <div className="reason-list">
+              {deployFlowChecks.map((item, index) => (
+                <div key={item} className="reason-card">
+                  <span className="reason-number">{index + 1}</span>
+                  <div className="metric-pill-value">{item}</div>
                 </div>
               ))}
             </div>
