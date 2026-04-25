@@ -24,7 +24,7 @@ const phases = [
     items: [
       'Storage-status API er på plass for å sjekke server-memory vs upstash-redis',
       'Status-siden viser Redis-konfigurasjon, Redis ping og tracker-store summary',
-      'Setup og QA har egne steg for å verifisere at historikken overlever redeploy',
+      'Setup, Guide, QA og Database plan dokumenterer server-memory → Upstash → Postgres veien',
       'Neste manuelle steg er å legge inn Upstash Redis-variablene i Vercel',
     ],
   },
@@ -66,7 +66,7 @@ export default function RoadmapPage() {
         <div className="summary-grid" style={{ marginTop: 20 }}>
           <div className="summary-card">
             <div className="summary-label">Nåværende status</div>
-            <div className="summary-value">V2.11</div>
+            <div className="summary-value">V2.12</div>
           </div>
           <div className="summary-card">
             <div className="summary-label">Deploy</div>
