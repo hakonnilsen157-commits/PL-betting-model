@@ -66,6 +66,11 @@ const endpoints = [
   },
   {
     method: 'GET',
+    path: '/api/tracker/insights',
+    purpose: 'Returnerer tracker-oppsummering, markedsinnsikt og anbefalte neste tiltak.',
+  },
+  {
+    method: 'GET',
     path: '/api/tracker/export',
     purpose: 'Eksporterer trackerhistorikk som JSON.',
   },
@@ -94,6 +99,7 @@ const usageNotes = [
   'Export-rutene gjør det enklere å hente historikk ut til Excel eller videre analyse.',
   'Stats-ruten bør bli grunnlaget for ekte backtest-dashboardet.',
   'Quality-ruten bør brukes for å oppdage svake data før modellen vurderes.',
+  'Insights-ruten bør brukes til å finne neste tiltak basert på historikk, ROI, sample size og datakvalitet.',
   'Seed-demo-ruten er kun for testing og bør ikke brukes som ekte modellhistorikk.',
 ];
 
@@ -122,6 +128,11 @@ const quickTests = [
     title: 'Tracker quality',
     href: '/api/tracker/quality',
     text: 'Se quality score og issues i tracker-store.',
+  },
+  {
+    title: 'Tracker insights',
+    href: '/api/tracker/insights',
+    text: 'Se markedsinnsikt og anbefalte neste tiltak.',
   },
   {
     title: 'Export JSON',
