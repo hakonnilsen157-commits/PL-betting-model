@@ -20,11 +20,12 @@ const phases = [
   },
   {
     title: 'Fase 3: Persistent historikk',
-    status: 'Neste',
+    status: 'Klar for oppsett',
     items: [
-      'Koble Upstash Redis i Vercel for å bevare trackerhistorikk etter deploys',
-      'Validere at /api/tracker/snapshot, history, stats og quality bruker samme persistent store',
-      'Test at pending/settled historikk fortsatt finnes etter ny deploy',
+      'Storage-status API er på plass for å sjekke server-memory vs upstash-redis',
+      'Status-siden viser Redis-konfigurasjon, Redis ping og tracker-store summary',
+      'Setup og QA har egne steg for å verifisere at historikken overlever redeploy',
+      'Neste manuelle steg er å legge inn Upstash Redis-variablene i Vercel',
     ],
   },
   {
@@ -65,7 +66,7 @@ export default function RoadmapPage() {
         <div className="summary-grid" style={{ marginTop: 20 }}>
           <div className="summary-card">
             <div className="summary-label">Nåværende status</div>
-            <div className="summary-value">V2.10</div>
+            <div className="summary-value">V2.11</div>
           </div>
           <div className="summary-card">
             <div className="summary-label">Deploy</div>
@@ -77,7 +78,7 @@ export default function RoadmapPage() {
           </div>
           <div className="summary-card">
             <div className="summary-label">Neste mål</div>
-            <div className="summary-value">Redis</div>
+            <div className="summary-value">Upstash</div>
           </div>
         </div>
       </section>
