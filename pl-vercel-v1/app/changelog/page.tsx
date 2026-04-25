@@ -1,5 +1,15 @@
 const changes = [
   {
+    version: 'V2.15',
+    title: 'Backtest bruker Insights',
+    items: [
+      'Oppdatert Backtest til å hente både /api/tracker/stats og /api/tracker/insights.',
+      'Lagt inn anbefalte neste tiltak direkte på Backtest-siden.',
+      'Utvidet Backtest med tydeligere storage-status og datakvalitet i sidepanelet.',
+      'Gjort Backtest mer nyttig som samleside for historikk, markedssignaler og modelltiltak.',
+    ],
+  },
+  {
     version: 'V2.14',
     title: 'Insights i brukerguiden',
     items: [
