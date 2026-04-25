@@ -1,5 +1,15 @@
 const changes = [
   {
+    version: 'V2.8',
+    title: 'Quality layer og helsesjekk',
+    items: [
+      'Lagt til tracker quality API med quality score, issues og svakeste tracker-rader.',
+      'Lagt til Quality-side med green/yellow/red mix og issue counts.',
+      'Utvidet Status-siden med quality score, quality mix og tracker quality probe.',
+      'Oppdatert API reference med quality-rute og quick test-lenke.',
+    ],
+  },
+  {
     version: 'V2.7',
     title: 'Tracker API og statsflyt',
     items: [
