@@ -29,7 +29,7 @@ const qaChecks = [
   },
   {
     title: 'Status-siden svarer',
-    description: 'Status-siden skal hente health, live-status, tracker snapshot, tracker stats, tracker quality og endpoint probes uten feil.',
+    description: 'Status-siden skal hente health, live-status, storage-status, tracker snapshot, tracker stats, tracker quality og endpoint probes uten feil.',
   },
   {
     title: 'Mobilvisning fungerer',
@@ -48,6 +48,7 @@ const deployChecks = [
 const apiChecks = [
   '/api/health skal returnere ok: true.',
   '/api/fixtures skal returnere dashboard-data eller fallback-data.',
+  '/api/tracker/storage-status skal returnere storageMode, redis og summary.',
   '/api/tracker/snapshot skal returnere rows, source og generatedAt.',
   'POST /api/tracker/snapshot skal lagre snapshot-rader til tracker-store.',
   '/api/tracker/history skal vise open og settled trackerhistorikk.',
@@ -65,6 +66,15 @@ const trackerFlowChecks = [
   'Åpne Quality og sjekk at radene får quality score.',
   'Trykk CSV export og bekreft at filen inneholder pending-radene.',
   'Trykk Reset store når testen er ferdig hvis du vil nullstille historikken.',
+];
+
+const redisFlowChecks = [
+  'Åpne /api/tracker/storage-status og sjekk storageMode.',
+  'Hvis Upstash ikke er satt: storageMode skal være server-memory og Redis skal vise Ikke satt.',
+  'Hvis Upstash er satt: storageMode skal være upstash-redis og Redis ping skal være OK.',
+  'Lagre et server snapshot i V2 Tracker.',
+  'Redeploy appen i Vercel.',
+  'Åpne Status og sjekk at trackerhistorikken fortsatt finnes etter deploy.',
 ];
 
 const bugTemplate = [
@@ -124,6 +134,25 @@ export default function QAPage() {
 
             <div className="reason-list">
               {trackerFlowChecks.map((item, index) => (
+                <div key={item} className="reason-card">
+                  <span className="reason-number">{index + 1}</span>
+                  <div className="metric-pill-value">{item}</div>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          <section className="list-card">
+            <div className="list-card-header">
+              <div>
+                <h2 className="section-title" style={{ marginBottom: 0 }}>Redis / persistent store</h2>
+                <p className="section-subtitle">Test for å se om trackerhistorikken overlever deploys.</p>
+              </div>
+              <div className="badge-soft">Storage</div>
+            </div>
+
+            <div className="reason-list">
+              {redisFlowChecks.map((item, index) => (
                 <div key={item} className="reason-card">
                   <span className="reason-number">{index + 1}</span>
                   <div className="metric-pill-value">{item}</div>
