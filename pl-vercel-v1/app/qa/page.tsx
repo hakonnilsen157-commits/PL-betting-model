@@ -13,11 +13,19 @@ const qaChecks = [
   },
   {
     title: 'V2 Tracker laster',
-    description: 'Tracker-siden skal vise åpne picks, historikk og settled demo-data uten krasj.',
+    description: 'Tracker-siden skal vise åpne picks, historikk, settlement queue og lokal tracker-flyt uten krasj.',
+  },
+  {
+    title: 'Stats fungerer',
+    description: 'Stats-siden skal hente tracker stats, kunne seede demo-data, auto-settle, resette og eksportere CSV/JSON.',
+  },
+  {
+    title: 'Quality fungerer',
+    description: 'Quality-siden skal hente quality score, issue counts og svakeste tracker-rader fra /api/tracker/quality.',
   },
   {
     title: 'Status-siden svarer',
-    description: 'Status-siden skal hente /api/health og /api/live-status uten feil.',
+    description: 'Status-siden skal hente health, live-status, tracker stats, tracker quality og endpoint probes uten feil.',
   },
   {
     title: 'Mobilvisning fungerer',
@@ -29,8 +37,17 @@ const deployChecks = [
   'Sjekk at nyeste deployment i Vercel står som Ready.',
   'Kontroller at commit-hashen i Vercel matcher siste commit i GitHub.',
   'Åpne forsiden i inkognito eller ny fane etter deploy.',
-  'Test Dashboard, V2 Tracker, Status og Changelog etter større endringer.',
+  'Test Dashboard, V2 Tracker, Stats, Quality, Status og Changelog etter større endringer.',
   'Hvis build feiler, les nederste del av Vercel build logs først.',
+];
+
+const apiChecks = [
+  '/api/health skal returnere ok: true.',
+  '/api/fixtures skal returnere dashboard-data eller fallback-data.',
+  '/api/tracker/stats skal returnere summary, marketStats og profitTrend.',
+  '/api/tracker/quality skal returnere avgScore, issueCounts og rows.',
+  '/api/tracker/export skal returnere tracker-store som JSON.',
+  '/api/tracker/export?format=csv skal laste ned CSV.',
 ];
 
 const bugTemplate = [
@@ -50,7 +67,7 @@ export default function QAPage() {
             <div className="eyebrow">Premier League Betting Model</div>
             <h1 className="hero-title">QA checklist</h1>
             <p className="hero-subtitle">
-              En enkel testside for å sjekke at appen fungerer etter deploy. Bruk denne når vi gjør større endringer eller når Vercel har bygget en ny versjon.
+              En testside for å sjekke at appen fungerer etter deploy. Bruk denne når vi gjør større endringer eller når Vercel har bygget en ny versjon.
             </p>
           </div>
           <div className="updated-at">Testing</div>
@@ -74,6 +91,25 @@ export default function QAPage() {
                   <div className="metric-pill-label">Sjekk</div>
                   <div className="metric-pill-value">{check.title}</div>
                   <p className="section-subtitle" style={{ marginTop: 8 }}>{check.description}</p>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          <section className="list-card">
+            <div className="list-card-header">
+              <div>
+                <h2 className="section-title" style={{ marginBottom: 0 }}>API-sjekker</h2>
+                <p className="section-subtitle">Ruter som bør testes når tracker, stats eller quality endres.</p>
+              </div>
+              <div className="badge-soft">API</div>
+            </div>
+
+            <div className="reason-list">
+              {apiChecks.map((item, index) => (
+                <div key={item} className="reason-card">
+                  <span className="reason-number">{index + 1}</span>
+                  <div className="metric-pill-value">{item}</div>
                 </div>
               ))}
             </div>
