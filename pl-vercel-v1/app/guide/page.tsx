@@ -24,8 +24,12 @@ const steps = [
     text: 'Quality-siden viser hvilke tracker-rader som har svak datakvalitet, manglende felt, lav EV eller lav confidence.',
   },
   {
-    title: '7. Sjekk Status ved feil',
-    text: 'Status-siden viser health, API probes, storage mode, Redis ping, tracker store, quality score og om API-nøkler er satt.',
+    title: '7. Bruk Insights',
+    text: 'Insights-siden oppsummerer trackerhistorikken og foreslår neste tiltak basert på ROI, sample size, marked og datakvalitet.',
+  },
+  {
+    title: '8. Sjekk Status ved feil',
+    text: 'Status-siden viser health, API probes, storage mode, Redis ping, tracker store, quality score, insights og om API-nøkler er satt.',
   },
 ];
 
@@ -42,6 +46,7 @@ const workflow = [
   'V2 Tracker: lagre server snapshot og følg pending/settled.',
   'Stats: vurder ROI, hit rate og profittrend.',
   'Quality: sjekk om trackerhistorikken har svake rader.',
+  'Insights: få anbefalte neste tiltak basert på historikken.',
   'Status: sjekk storage mode, Redis ping og API health hvis noe virker rart.',
   'Backtest: vurder hvilke markeder som faktisk fungerer over tid.',
 ];
@@ -51,6 +56,13 @@ const storageGuide = [
   'upstash-redis betyr at tracker-store er persistent og bedre egnet til V2-testing.',
   'Bruk /api/tracker/storage-status eller Status-siden for å se hvilken storage mode appen faktisk bruker.',
   'Når Redis er satt riktig, bør pending/settled historikk fortsatt finnes etter redeploy.',
+];
+
+const insightsGuide = [
+  'Insights bør brukes som en beslutningsstøtte, ikke som fasit.',
+  'Lav sample size betyr at modellen trenger mer historikk før konklusjoner trekkes.',
+  'Negative markeder kan brukes til å stramme inn eller pause enkelte markedstyper.',
+  'Positive markeder bør følges videre, men må bekreftes over flere kamper og flere runder.',
 ];
 
 export default function GuidePage() {
@@ -75,9 +87,9 @@ export default function GuidePage() {
             <div className="list-card-header">
               <div>
                 <h2 className="section-title" style={{ marginBottom: 0 }}>Slik bruker du appen</h2>
-                <p className="section-subtitle">En enkel flyt fra analyse til logging, stats, quality og storage check.</p>
+                <p className="section-subtitle">En enkel flyt fra analyse til logging, stats, quality, insights og storage check.</p>
               </div>
-              <div className="badge-soft">7 steg</div>
+              <div className="badge-soft">8 steg</div>
             </div>
 
             <div className="metrics-grid" style={{ marginTop: 14 }}>
@@ -102,6 +114,25 @@ export default function GuidePage() {
 
             <div className="reason-list">
               {workflow.map((item, index) => (
+                <div key={item} className="reason-card">
+                  <span className="reason-number">{index + 1}</span>
+                  <div className="metric-pill-value">{item}</div>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          <section className="list-card">
+            <div className="list-card-header">
+              <div>
+                <h2 className="section-title" style={{ marginBottom: 0 }}>Insights guide</h2>
+                <p className="section-subtitle">Hvordan du bør tolke anbefalingene fra Insights-siden.</p>
+              </div>
+              <div className="badge-soft">Insights</div>
+            </div>
+
+            <div className="reason-list">
+              {insightsGuide.map((item, index) => (
                 <div key={item} className="reason-card">
                   <span className="reason-number">{index + 1}</span>
                   <div className="metric-pill-value">{item}</div>
@@ -170,6 +201,13 @@ export default function GuidePage() {
             <h2 className="section-title">Hva betyr quality score?</h2>
             <p className="section-subtitle">
               Quality score er en intern sjekk av tracker-data. Lav score betyr at raden bør undersøkes før den brukes i backtest eller modellvurdering.
+            </p>
+          </section>
+
+          <section className="detail-card" style={{ marginTop: 16 }}>
+            <h2 className="section-title">Hva betyr Insights?</h2>
+            <p className="section-subtitle">
+              Insights er en enkel tolkning av trackerhistorikken som hjelper deg å se hva som bør testes, strammes inn eller følges videre.
             </p>
           </section>
 
