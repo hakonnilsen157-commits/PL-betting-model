@@ -24,7 +24,11 @@ const testSteps = [
     text: 'Last ned CSV eller JSON fra Test lab for å se at trackerhistorikken kan tas ut.',
   },
   {
-    title: '7. Test redeploy senere',
+    title: '7. Oppdater GitHub issue #2',
+    text: 'Når du har testet, kan issue #2 brukes som sjekkliste for hva som fungerte og hva som eventuelt må fikses.',
+  },
+  {
+    title: '8. Test redeploy senere',
     text: 'Når Upstash Redis er satt opp, lagrer du data, redeployer og sjekker at historikken fortsatt finnes.',
   },
 ];
@@ -45,6 +49,13 @@ const knownLimits = [
   'Uten ekte live resultater er auto-settlement fortsatt begrenset.',
   'Demo-data skal bare brukes til testing av flyt, ikke modellvurdering.',
   'Lav sample size betyr at ROI og hit rate ikke er pålitelige ennå.',
+];
+
+const issueChecks = [
+  'Issue #2 er oppdatert med hva som allerede er bygget.',
+  'Issue #2 har egen manuell testliste for deploy-testen.',
+  'Issue #2 holdes åpen til du har testet appen i Vercel.',
+  'Når alt fungerer kan issue #2 lukkes eller brukes som mal for neste testøkt.',
 ];
 
 export default function QuickTestPage() {
@@ -74,7 +85,7 @@ export default function QuickTestPage() {
                 <h2 className="section-title" style={{ marginBottom: 0 }}>Testrekkefølge</h2>
                 <p className="section-subtitle">Følg disse punktene når du tester i dag.</p>
               </div>
-              <div className="badge-soft">7 steg</div>
+              <div className="badge-soft">8 steg</div>
             </div>
             <div className="metrics-grid" style={{ marginTop: 14 }}>
               {testSteps.map((step) => (
@@ -112,6 +123,21 @@ export default function QuickTestPage() {
             <p className="section-subtitle">
               Åpne Test lab, trykk Oppdater alt, Save snapshot og Seed demo. Da får du raskt data på de fleste V2-sidene.
             </p>
+          </section>
+
+          <section className="detail-card" style={{ marginTop: 16 }}>
+            <h2 className="section-title">GitHub issue #2</h2>
+            <p className="section-subtitle">
+              Issue #2 fungerer nå som testprotokoll for V2-testen etter deploy.
+            </p>
+            <div className="reason-list" style={{ marginTop: 16 }}>
+              {issueChecks.map((item, index) => (
+                <div key={item} className="reason-card">
+                  <span className="reason-number">{index + 1}</span>
+                  <div className="metric-pill-value">{item}</div>
+                </div>
+              ))}
+            </div>
           </section>
 
           <section className="detail-card" style={{ marginTop: 16 }}>
