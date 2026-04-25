@@ -4,6 +4,10 @@ const qaChecks = [
     description: 'Deploy checklist skal vise steg for test etter Vercel deploy, feilsøking og snarveier til testsider.',
   },
   {
+    title: 'Upstash setup fungerer',
+    description: 'Upstash setup skal vise Redis-steg, environment variables, verifisering og vanlige feil.',
+  },
+  {
     title: 'Quick test fungerer',
     description: 'Quick test skal vise kort testrekkefølge, forventet resultat og GitHub issue #2-informasjon.',
   },
@@ -61,6 +65,7 @@ const deployChecks = [
   'Sjekk at nyeste deployment i Vercel står som Ready.',
   'Kontroller at commit-hashen i Vercel matcher siste commit i GitHub.',
   'Åpne Deploy checklist etter deploy.',
+  'Åpne Upstash setup hvis du skal teste persistent historikk.',
   'Åpne Quick test og følg testrekkefølgen.',
   'Åpne Test lab i inkognito eller ny fane etter deploy.',
   'Trykk Oppdater alt i Test lab og sjekk at API probes er OK.',
@@ -90,6 +95,15 @@ const deployFlowChecks = [
   'Klikk videre til Test lab.',
   'Bruk Status eller Diagnostics hvis noe feiler.',
   'Oppdater GitHub issue #2 etter manuell test.',
+];
+
+const upstashFlowChecks = [
+  'Åpne /upstash-setup.',
+  'Sjekk at variablene UPSTASH_REDIS_REST_URL og UPSTASH_REDIS_REST_TOKEN vises.',
+  'Legg variablene inn i Vercel og redeploy.',
+  'Åpne Status og sjekk storageMode upstash-redis.',
+  'Åpne Diagnostics og sjekk persistent storage-check.',
+  'Lagre snapshot, redeploy og bekreft at historikken fortsatt finnes.',
 ];
 
 const testLabFlowChecks = [
@@ -181,6 +195,25 @@ export default function QAPage() {
 
             <div className="reason-list">
               {deployFlowChecks.map((item, index) => (
+                <div key={item} className="reason-card">
+                  <span className="reason-number">{index + 1}</span>
+                  <div className="metric-pill-value">{item}</div>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          <section className="list-card">
+            <div className="list-card-header">
+              <div>
+                <h2 className="section-title" style={{ marginBottom: 0 }}>Upstash flow</h2>
+                <p className="section-subtitle">Test av persistent Redis-lagring.</p>
+              </div>
+              <div className="badge-soft">Redis</div>
+            </div>
+
+            <div className="reason-list">
+              {upstashFlowChecks.map((item, index) => (
                 <div key={item} className="reason-card">
                   <span className="reason-number">{index + 1}</span>
                   <div className="metric-pill-value">{item}</div>
