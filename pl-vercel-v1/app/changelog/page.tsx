@@ -1,5 +1,16 @@
 const changes = [
   {
+    version: 'V2.19',
+    title: 'Deploy checklist og testflyt',
+    items: [
+      'Lagt til /deploy-checklist som egen side for testing rett etter Vercel deploy.',
+      'Koblet Deploy checklist inn i menyen under Prosjekt.',
+      'Oppdatert Guide med Deploy checklist som første steg, 11-stegs arbeidsflyt og egen Deploy guide.',
+      'Oppdatert QA med Deploy checklist, Quick test og egen deploy flow.',
+      'Oppdatert Quick test med GitHub issue #2 som testprotokoll.',
+    ],
+  },
+  {
     version: 'V2.18',
     title: 'Test lab og raskere V2-testing',
     items: [
