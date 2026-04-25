@@ -74,6 +74,29 @@ const usageNotes = [
   'Seed-demo-ruten er kun for testing og bør ikke brukes som ekte modellhistorikk.',
 ];
 
+const quickTests = [
+  {
+    title: 'Health',
+    href: '/api/health',
+    text: 'Åpne health-check direkte.',
+  },
+  {
+    title: 'Tracker stats',
+    href: '/api/tracker/stats',
+    text: 'Se rå statsrespons i JSON.',
+  },
+  {
+    title: 'Export JSON',
+    href: '/api/tracker/export',
+    text: 'Eksporter tracker-store som JSON.',
+  },
+  {
+    title: 'Export CSV',
+    href: '/api/tracker/export?format=csv',
+    text: 'Last ned tracker-store som CSV.',
+  },
+];
+
 export default function ApiReferencePage() {
   return (
     <main className="dashboard-shell">
@@ -108,6 +131,26 @@ export default function ApiReferencePage() {
                   <div className="metric-pill-value">{endpoint.path}</div>
                   <p className="section-subtitle" style={{ marginTop: 8 }}>{endpoint.purpose}</p>
                 </div>
+              ))}
+            </div>
+          </section>
+
+          <section className="list-card">
+            <div className="list-card-header">
+              <div>
+                <h2 className="section-title" style={{ marginBottom: 0 }}>Quick tests</h2>
+                <p className="section-subtitle">Direkte testlenker til de mest nyttige API-rutene.</p>
+              </div>
+              <div className="badge-soft">Debug</div>
+            </div>
+
+            <div className="metrics-grid" style={{ marginTop: 14 }}>
+              {quickTests.map((test) => (
+                <a key={test.href} href={test.href} className="metric-pill" style={{ textAlign: 'left' }}>
+                  <div className="metric-pill-label">Åpne API</div>
+                  <div className="metric-pill-value">{test.title}</div>
+                  <p className="section-subtitle" style={{ marginTop: 8 }}>{test.text}</p>
+                </a>
               ))}
             </div>
           </section>
