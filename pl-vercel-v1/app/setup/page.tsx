@@ -37,7 +37,7 @@ const envVars = [
   {
     name: 'UPSTASH_REDIS_REST_URL',
     value: 'secret URL',
-    description: 'Valgfri persistent tracker-lagring. Når denne settes, bruker tracker-store Redis i stedet for server-memory.',
+    description: 'Persistent tracker-lagring. Når denne settes sammen med token, bruker tracker-store Redis i stedet for server-memory.',
   },
   {
     name: 'UPSTASH_REDIS_REST_TOKEN',
@@ -53,7 +53,9 @@ const setupSteps = [
   'Sett DATA_MODE til ønsket modus.',
   'Legg inn Upstash Redis-variablene hvis trackerhistorikk skal overleve nye deploys.',
   'Redeploy prosjektet etter at environment variables er lagret.',
-  'Sjekk Status-siden i appen etter deploy for å bekrefte at nøkler og tracker storage mode er registrert.',
+  'Åpne /api/tracker/storage-status og sjekk at storageMode viser upstash-redis.',
+  'Sjekk Status-siden i appen etter deploy og bekreft at Redis ping viser OK.',
+  'Lagre et server snapshot i V2 Tracker og sjekk at pending fortsatt finnes etter en ny redeploy.',
 ];
 
 const storageModes = [
@@ -65,6 +67,14 @@ const storageModes = [
     title: 'upstash-redis',
     text: 'Persistent lagring via Upstash Redis. Dette er bedre for V2-testing fordi trackerhistorikken kan overleve deploys.',
   },
+];
+
+const redisChecks = [
+  '/api/tracker/storage-status skal vise storageMode: upstash-redis når variablene er satt.',
+  'Redis ping på Status-siden skal vise OK.',
+  'V2 Tracker skal kunne lagre server snapshot uten feil.',
+  'Stats og Quality skal vise samme antall tracker-rader etter lagring.',
+  'Etter redeploy bør trackerhistorikken fortsatt være der hvis Redis er satt riktig.',
 ];
 
 export default function SetupPage() {
@@ -120,6 +130,25 @@ export default function SetupPage() {
                   <div className="metric-pill-label">Storage</div>
                   <div className="metric-pill-value">{mode.title}</div>
                   <p className="section-subtitle" style={{ marginTop: 8 }}>{mode.text}</p>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          <section className="list-card">
+            <div className="list-card-header">
+              <div>
+                <h2 className="section-title" style={{ marginBottom: 0 }}>Redis verifisering</h2>
+                <p className="section-subtitle">Sjekker som bekrefter at persistent tracker-store virker.</p>
+              </div>
+              <div className="badge-soft">Redis</div>
+            </div>
+
+            <div className="reason-list">
+              {redisChecks.map((check, index) => (
+                <div key={check} className="reason-card">
+                  <span className="reason-number">{index + 1}</span>
+                  <div className="metric-pill-value">{check}</div>
                 </div>
               ))}
             </div>
