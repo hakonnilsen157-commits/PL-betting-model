@@ -16,6 +16,7 @@ const phases = [
       'Stats-siden viser ROI, hit rate, market stats og profittrend fra API',
       'Quality-siden viser quality score, issue counts og svakeste tracker-rader',
       'Insights-siden foreslår neste tiltak basert på ROI, sample size, market performance og datakvalitet',
+      'Guide forklarer nå hele flyten fra Dashboard til Tracker, Stats, Quality, Insights, Status og Backtest',
       'Seed demo, reset store, auto-settle og CSV/JSON export er tilgjengelig fra UI',
     ],
   },
@@ -67,7 +68,7 @@ export default function RoadmapPage() {
         <div className="summary-grid" style={{ marginTop: 20 }}>
           <div className="summary-card">
             <div className="summary-label">Nåværende status</div>
-            <div className="summary-value">V2.13</div>
+            <div className="summary-value">V2.14</div>
           </div>
           <div className="summary-card">
             <div className="summary-label">Deploy</div>
