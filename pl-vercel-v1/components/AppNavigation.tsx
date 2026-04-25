@@ -38,6 +38,7 @@ const navGroups: NavGroup[] = [
     label: 'Prosjekt',
     links: [
       { href: '/deploy-checklist', label: 'Deploy checklist' },
+      { href: '/upstash-setup', label: 'Upstash setup' },
       { href: '/setup', label: 'Setup' },
       { href: '/api-reference', label: 'API' },
       { href: '/roadmap', label: 'Roadmap' },
