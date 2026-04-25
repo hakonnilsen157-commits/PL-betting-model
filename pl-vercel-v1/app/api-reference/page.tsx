@@ -16,6 +16,11 @@ const endpoints = [
   },
   {
     method: 'GET',
+    path: '/api/tracker/storage-status',
+    purpose: 'Viser storage mode, Redis-konfigurasjon, Redis ping og tracker-rader i store.',
+  },
+  {
+    method: 'GET',
     path: '/api/tracker/snapshot',
     purpose: 'Bygger server-side snapshot av anbefalinger som kan lagres i tracker-store.',
   },
@@ -83,6 +88,7 @@ const endpoints = [
 
 const usageNotes = [
   'API-rutene bør brukes av appen, ikke direkte fra klientkode mot eksterne API-er.',
+  'Storage-status-ruten brukes for å kontrollere at tracker-store faktisk bruker ønsket lagring.',
   'Snapshot-ruten gjør at V2 Tracker kan lagre anbefalinger server-side uten å bygge tracker-rader i klienten.',
   'Trackerhistorikk bør etter hvert lagres i persistent database eller Redis.',
   'Export-rutene gjør det enklere å hente historikk ut til Excel eller videre analyse.',
@@ -96,6 +102,11 @@ const quickTests = [
     title: 'Health',
     href: '/api/health',
     text: 'Åpne health-check direkte.',
+  },
+  {
+    title: 'Storage status',
+    href: '/api/tracker/storage-status',
+    text: 'Sjekk storage mode, Redis ping og tracker-store status.',
   },
   {
     title: 'Tracker snapshot',
