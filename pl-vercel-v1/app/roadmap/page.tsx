@@ -9,13 +9,14 @@ const phases = [
     ],
   },
   {
-    title: 'Fase 2: Tracker, stats, quality, insights og backtest',
+    title: 'Fase 2: Tracker, stats, quality, insights, diagnostics og backtest',
     status: 'Nesten ferdig',
     items: [
       'V2 Tracker bruker server snapshot API og tracker-store i stedet for lokal bygging i klienten',
       'Stats-siden viser ROI, hit rate, market stats og profittrend fra API',
       'Quality-siden viser quality score, issue counts og svakeste tracker-rader',
       'Insights-siden foreslår neste tiltak basert på ROI, sample size, market performance og datakvalitet',
+      'Diagnostics-siden viser readiness score, readiness checks og issues for tracker-oppsettet',
       'Backtest-siden bruker nå både tracker stats og tracker insights for å vise historikk og modelltiltak samlet',
       'Guide forklarer nå hele flyten fra Dashboard til Tracker, Stats, Quality, Insights, Status og Backtest',
       'Seed demo, reset store, auto-settle og CSV/JSON export er tilgjengelig fra UI',
@@ -27,6 +28,7 @@ const phases = [
     items: [
       'Storage-status API er på plass for å sjekke server-memory vs upstash-redis',
       'Status-siden viser Redis-konfigurasjon, Redis ping og tracker-store summary',
+      'Diagnostics sjekker om persistent storage er aktivert før seriøs modellvurdering',
       'Setup, Guide, QA og Database plan dokumenterer server-memory → Upstash → Postgres veien',
       'Neste manuelle steg er å legge inn Upstash Redis-variablene i Vercel',
     ],
@@ -37,7 +39,7 @@ const phases = [
     items: [
       'Bruke live resultater til automatisk settlement når API-nøkkel er satt',
       'Skille tydelig mellom live, partial-live, seed-demo og fallback-data',
-      'Bruke quality score, insights og backtest til å flagge picks med svak datakvalitet, lav EV eller lav confidence',
+      'Bruke quality score, insights, diagnostics og backtest til å flagge picks med svak datakvalitet, lav EV eller lav confidence',
     ],
   },
   {
@@ -69,7 +71,7 @@ export default function RoadmapPage() {
         <div className="summary-grid" style={{ marginTop: 20 }}>
           <div className="summary-card">
             <div className="summary-label">Nåværende status</div>
-            <div className="summary-value">V2.15</div>
+            <div className="summary-value">V2.16</div>
           </div>
           <div className="summary-card">
             <div className="summary-label">Deploy</div>
