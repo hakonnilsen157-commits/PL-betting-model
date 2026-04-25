@@ -8,43 +8,47 @@ const steps = [
     text: 'Bruk Upstash setup for å legge persistent Redis-lagring inn i Vercel slik at trackerhistorikken overlever deploy.',
   },
   {
-    title: '3. Start med Test lab',
+    title: '3. Test persistent lagring',
+    text: 'Bruk Persistent test etter Upstash-oppsett for å bekrefte at historikk overlever redeploy.',
+  },
+  {
+    title: '4. Start med Test lab',
     text: 'Bruk Test lab når du vil prøve V2 raskt. Der kan du kjøre snapshot, demo-data, auto-settle, reset, API probes og export fra samme sted.',
   },
   {
-    title: '4. Start med Dashboard',
+    title: '5. Start med Dashboard',
     text: 'Bruk dashboardet for å se kamper, beste anbefalinger, EV, confidence og modellens korte forklaring per spill.',
   },
   {
-    title: '5. Filtrer på marked og EV',
+    title: '6. Filtrer på marked og EV',
     text: 'Juster marked og minimum EV for å se om det finnes færre, men tydeligere verdi-cases.',
   },
   {
-    title: '6. Lagre server snapshot i V2 Tracker',
+    title: '7. Lagre server snapshot i V2 Tracker',
     text: 'V2 Tracker bruker server snapshot API-et for å bygge og lagre anbefalinger til tracker-store.',
   },
   {
-    title: '7. Følg pending og settled',
+    title: '8. Følg pending og settled',
     text: 'Tracker-siden viser pending picks, settled historikk, datakvalitet, eksport og auto-settlement handlinger.',
   },
   {
-    title: '8. Bruk Stats',
+    title: '9. Bruk Stats',
     text: 'Stats-siden viser ROI, hit rate, market stats, profit trend og gir deg knapper for seed demo, auto-settle, reset og eksport.',
   },
   {
-    title: '9. Bruk Quality',
+    title: '10. Bruk Quality',
     text: 'Quality-siden viser hvilke tracker-rader som har svak datakvalitet, manglende felt, lav EV eller lav confidence.',
   },
   {
-    title: '10. Bruk Insights',
+    title: '11. Bruk Insights',
     text: 'Insights-siden oppsummerer trackerhistorikken og foreslår neste tiltak basert på ROI, sample size, marked og datakvalitet.',
   },
   {
-    title: '11. Bruk Diagnostics',
+    title: '12. Bruk Diagnostics',
     text: 'Diagnostics-siden gir en readiness score og viser om tracker-oppsettet er klart for mer seriøs testing.',
   },
   {
-    title: '12. Sjekk Status ved feil',
+    title: '13. Sjekk Status ved feil',
     text: 'Status-siden viser health, API probes, storage mode, Redis ping, tracker store, quality score, insights, diagnostics og om API-nøkler er satt.',
   },
 ];
@@ -60,6 +64,7 @@ const rules = [
 const workflow = [
   'Deploy checklist: sjekk at ny Vercel deploy er klar og testbar.',
   'Upstash setup: sett opp persistent Redis når du vil at historikk skal overleve deploy.',
+  'Persistent test: bekreft at trackerhistorikken fortsatt finnes etter redeploy.',
   'Test lab: rask test av snapshot, seed demo, auto-settle, reset, probes og export.',
   'Dashboard: finn mulige verdi-cases.',
   'V2 Tracker: lagre server snapshot og følg pending/settled.',
@@ -84,6 +89,14 @@ const upstashGuide = [
   'Redeploy appen etter at variablene er lagt inn.',
   'Bekreft at storageMode blir upstash-redis i Status eller /api/tracker/storage-status.',
   'Test at historikken overlever redeploy før du bruker den seriøst.',
+];
+
+const persistentGuide = [
+  'Bruk Persistent test etter at Upstash-variablene er lagt inn og appen er redeployet.',
+  'Lagre snapshot eller demo-data før redeploy.',
+  'Noter antall open og settled rows før redeploy.',
+  'Redeploy appen og sjekk at radene fortsatt finnes etterpå.',
+  'Persistent test er bestått når storageMode er upstash-redis og historikken fortsatt finnes.',
 ];
 
 const testLabGuide = [
@@ -139,7 +152,7 @@ export default function GuidePage() {
                 <h2 className="section-title" style={{ marginBottom: 0 }}>Slik bruker du appen</h2>
                 <p className="section-subtitle">En enkel flyt fra deploy-test og Redis-oppsett til analyse, logging, stats, quality, insights, diagnostics og storage check.</p>
               </div>
-              <div className="badge-soft">12 steg</div>
+              <div className="badge-soft">13 steg</div>
             </div>
 
             <div className="metrics-grid" style={{ marginTop: 14 }}>
@@ -202,6 +215,25 @@ export default function GuidePage() {
 
             <div className="reason-list">
               {upstashGuide.map((item, index) => (
+                <div key={item} className="reason-card">
+                  <span className="reason-number">{index + 1}</span>
+                  <div className="metric-pill-value">{item}</div>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          <section className="list-card">
+            <div className="list-card-header">
+              <div>
+                <h2 className="section-title" style={{ marginBottom: 0 }}>Persistent test guide</h2>
+                <p className="section-subtitle">Hvordan du bekrefter at historikken overlever redeploy.</p>
+              </div>
+              <div className="badge-soft">Persist</div>
+            </div>
+
+            <div className="reason-list">
+              {persistentGuide.map((item, index) => (
                 <div key={item} className="reason-card">
                   <span className="reason-number">{index + 1}</span>
                   <div className="metric-pill-value">{item}</div>
@@ -320,6 +352,13 @@ export default function GuidePage() {
             <h2 className="section-title">Hva betyr Upstash setup?</h2>
             <p className="section-subtitle">
               Upstash setup forklarer hvordan trackerhistorikken kan lagres persistent i Redis i stedet for midlertidig server-memory.
+            </p>
+          </section>
+
+          <section className="detail-card" style={{ marginTop: 16 }}>
+            <h2 className="section-title">Hva betyr Persistent test?</h2>
+            <p className="section-subtitle">
+              Persistent test er en kontrollside for å bekrefte at trackerhistorikk faktisk overlever redeploy etter Upstash-oppsett.
             </p>
           </section>
 
