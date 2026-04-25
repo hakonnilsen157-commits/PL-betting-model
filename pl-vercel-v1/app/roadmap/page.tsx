@@ -12,6 +12,7 @@ const phases = [
     title: 'Fase 2: Tracker, stats, quality, insights, diagnostics, test lab og backtest',
     status: 'Nesten ferdig',
     items: [
+      'Deploy checklist, Quick test og GitHub issue #2 gjør det enklere å teste V2 etter hver Vercel deploy',
       'Test lab samler snapshot, seed demo, auto-settle, reset, API probes, tracker summary og export på én side',
       'V2 Tracker bruker server snapshot API og tracker-store i stedet for lokal bygging i klienten',
       'Stats-siden viser ROI, hit rate, market stats og profittrend fra API',
@@ -19,7 +20,7 @@ const phases = [
       'Insights-siden foreslår neste tiltak basert på ROI, sample size, market performance og datakvalitet',
       'Diagnostics-siden viser readiness score, readiness checks og issues for tracker-oppsettet',
       'Backtest-siden bruker nå både tracker stats og tracker insights for å vise historikk og modelltiltak samlet',
-      'Guide og QA forklarer nå hvordan Test lab brukes til rask V2-testing',
+      'Guide og QA forklarer nå hvordan Deploy checklist og Test lab brukes til rask V2-testing',
       'Seed demo, reset store, auto-settle og CSV/JSON export er tilgjengelig fra UI',
     ],
   },
@@ -30,6 +31,7 @@ const phases = [
       'Storage-status API er på plass for å sjekke server-memory vs upstash-redis',
       'Status-siden viser Redis-konfigurasjon, Redis ping og tracker-store summary',
       'Diagnostics sjekker om persistent storage er aktivert før seriøs modellvurdering',
+      'Deploy checklist og QA beskriver hvordan historikk bør testes etter redeploy',
       'Setup, Guide, QA og Database plan dokumenterer server-memory → Upstash → Postgres veien',
       'Neste manuelle steg er å legge inn Upstash Redis-variablene i Vercel',
     ],
@@ -72,7 +74,7 @@ export default function RoadmapPage() {
         <div className="summary-grid" style={{ marginTop: 20 }}>
           <div className="summary-card">
             <div className="summary-label">Nåværende status</div>
-            <div className="summary-value">V2.18</div>
+            <div className="summary-value">V2.19</div>
           </div>
           <div className="summary-card">
             <div className="summary-label">Deploy</div>
