@@ -10,6 +10,16 @@ const tables = [
     fields: ['id', 'fixtureId', 'market', 'odds', 'expectedValue', 'confidence', 'createdAt'],
   },
   {
+    name: 'tracker_snapshots',
+    purpose: 'Lagrer server snapshot av anbefalinger som ble tilgjengelige i V2 Tracker.',
+    fields: ['snapshotId', 'source', 'dataQuality', 'generatedAt', 'savedAt'],
+  },
+  {
+    name: 'tracker_picks',
+    purpose: 'Lagrer pending og settled picks med marked, odds, EV, confidence og status.',
+    fields: ['id', 'fixtureId', 'snapshotId', 'market', 'odds', 'expectedValue', 'confidence', 'status'],
+  },
+  {
     name: 'odds_snapshots',
     purpose: 'Lagrer oddsgrunnlaget modellen brukte da anbefalingen ble laget.',
     fields: ['id', 'fixtureId', 'bookmaker', 'market', 'odds', 'capturedAt'],
@@ -22,14 +32,17 @@ const tables = [
   {
     name: 'data_quality',
     purpose: 'Lagrer kvalitet og kilde for datagrunnlaget.',
-    fields: ['id', 'fixtureId', 'mode', 'hasLiveOdds', 'hasLiveTeamData', 'qualityScore'],
+    fields: ['id', 'fixtureId', 'mode', 'source', 'hasLiveOdds', 'hasLiveTeamData', 'qualityScore'],
   },
 ];
 
 const databaseSteps = [
-  'Start med Upstash Redis for enkel persistent tracker-store i V2.',
-  'Bruk /api/tracker/history som eneste skrivepunkt for trackerhistorikk.',
-  'Bruk /api/tracker/stats som grunnlag for Stats og Backtest-dashboard.',
+  'Bruk server-memory for rask testing når Redis ikke er konfigurert.',
+  'Sett opp Upstash Redis i Vercel når trackerhistorikk skal overleve deploys.',
+  'Bruk /api/tracker/storage-status for å verifisere storageMode og Redis ping.',
+  'Bruk /api/tracker/snapshot som server-side inngang for nye tracker-rader.',
+  'Bruk /api/tracker/history som felles lese- og skrivepunkt for trackerhistorikk.',
+  'Bruk /api/tracker/stats og /api/tracker/quality som datagrunnlag for Stats, Quality og Backtest.',
   'Når datamodellen er stabil, flytt til relasjonsdatabase som Supabase, Neon eller Vercel Postgres.',
   'Legg inn createdAt, updatedAt og datakilde på alle rader slik at historikken kan etterprøves.',
 ];
@@ -52,6 +65,14 @@ const storageOptions = [
   },
 ];
 
+const currentStorageFlow = [
+  '/api/tracker/snapshot bygger anbefalinger til tracker-rader server-side.',
+  '/api/tracker/history lagrer, leser og nullstiller open/settled trackerhistorikk.',
+  '/api/tracker/stats beregner ROI, hit rate, market stats og profittrend.',
+  '/api/tracker/quality beregner quality score og issues på tracker-rader.',
+  '/api/tracker/storage-status viser om appen bruker server-memory eller upstash-redis.',
+];
+
 export default function DatabasePage() {
   return (
     <main className="dashboard-shell">
@@ -61,7 +82,7 @@ export default function DatabasePage() {
             <div className="eyebrow">Premier League Betting Model</div>
             <h1 className="hero-title">Database plan</h1>
             <p className="hero-subtitle">
-              Et forslag til hvordan appen kan gå fra localStorage/server-memory til persistent tracker-store og senere relasjonsdatabase for ekte backtest.
+              Et forslag til hvordan appen kan gå fra server-memory og Upstash Redis til en relasjonsdatabase for ekte backtest og mer robust historikk.
             </p>
           </div>
           <div className="updated-at">Storage layer</div>
@@ -85,6 +106,25 @@ export default function DatabasePage() {
                   <div className="metric-pill-label">{option.strength}</div>
                   <div className="metric-pill-value">{option.title}</div>
                   <p className="section-subtitle" style={{ marginTop: 8 }}>{option.weakness}</p>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          <section className="list-card">
+            <div className="list-card-header">
+              <div>
+                <h2 className="section-title" style={{ marginBottom: 0 }}>Nåværende V2 storage flow</h2>
+                <p className="section-subtitle">API-rutene som nå utgjør tracker- og analyseflyten.</p>
+              </div>
+              <div className="badge-soft">V2.11</div>
+            </div>
+
+            <div className="reason-list">
+              {currentStorageFlow.map((item, index) => (
+                <div key={item} className="reason-card">
+                  <span className="reason-number">{index + 1}</span>
+                  <div className="metric-pill-value">{item}</div>
                 </div>
               ))}
             </div>
@@ -128,7 +168,7 @@ export default function DatabasePage() {
           </section>
 
           <section className="warning-box">
-            Før vi går tungt inn i database, bør tracker-store og stats API brukes aktivt. Da ser vi hvilke felt som faktisk trengs før vi låser schema.
+            Før vi går tungt inn i Postgres, bør Redis og tracker-store brukes aktivt. Da ser vi hvilke felt som faktisk trengs før vi låser schema.
           </section>
         </aside>
       </section>
