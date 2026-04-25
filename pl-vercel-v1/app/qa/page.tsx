@@ -28,8 +28,12 @@ const qaChecks = [
     description: 'Quality-siden skal hente quality score, issue counts og svakeste tracker-rader fra /api/tracker/quality.',
   },
   {
+    title: 'Insights fungerer',
+    description: 'Insights-siden skal vise anbefalte neste tiltak, market insights, storage mode og tracker summary.',
+  },
+  {
     title: 'Status-siden svarer',
-    description: 'Status-siden skal hente health, live-status, storage-status, tracker snapshot, tracker stats, tracker quality og endpoint probes uten feil.',
+    description: 'Status-siden skal hente health, live-status, storage-status, tracker snapshot, stats, quality, insights og endpoint probes uten feil.',
   },
   {
     title: 'Mobilvisning fungerer',
@@ -41,7 +45,7 @@ const deployChecks = [
   'Sjekk at nyeste deployment i Vercel står som Ready.',
   'Kontroller at commit-hashen i Vercel matcher siste commit i GitHub.',
   'Åpne forsiden i inkognito eller ny fane etter deploy.',
-  'Test Dashboard, V2 Tracker, Stats, Quality, Status og Changelog etter større endringer.',
+  'Test Dashboard, V2 Tracker, Stats, Quality, Insights, Status og Changelog etter større endringer.',
   'Hvis build feiler, les nederste del av Vercel build logs først.',
 ];
 
@@ -54,6 +58,7 @@ const apiChecks = [
   '/api/tracker/history skal vise open og settled trackerhistorikk.',
   '/api/tracker/stats skal returnere summary, marketStats og profitTrend.',
   '/api/tracker/quality skal returnere avgScore, issueCounts og rows.',
+  '/api/tracker/insights skal returnere summary, marketInsights og recommendations.',
   '/api/tracker/export skal returnere tracker-store som JSON.',
   '/api/tracker/export?format=csv skal laste ned CSV.',
 ];
@@ -64,6 +69,7 @@ const trackerFlowChecks = [
   'Sjekk at Pending viser de lagrede radene.',
   'Åpne Stats og sjekk at Pending Count er oppdatert.',
   'Åpne Quality og sjekk at radene får quality score.',
+  'Åpne Insights og sjekk at recommendations og market insights oppdateres.',
   'Trykk CSV export og bekreft at filen inneholder pending-radene.',
   'Trykk Reset store når testen er ferdig hvis du vil nullstille historikken.',
 ];
@@ -127,7 +133,7 @@ export default function QAPage() {
             <div className="list-card-header">
               <div>
                 <h2 className="section-title" style={{ marginBottom: 0 }}>Tracker flow</h2>
-                <p className="section-subtitle">Praktisk test av server-snapshot → tracker-store → stats/quality/export.</p>
+                <p className="section-subtitle">Praktisk test av server-snapshot → tracker-store → stats/quality/insights/export.</p>
               </div>
               <div className="badge-soft">V2</div>
             </div>
@@ -165,7 +171,7 @@ export default function QAPage() {
             <div className="list-card-header">
               <div>
                 <h2 className="section-title" style={{ marginBottom: 0 }}>API-sjekker</h2>
-                <p className="section-subtitle">Ruter som bør testes når tracker, stats eller quality endres.</p>
+                <p className="section-subtitle">Ruter som bør testes når tracker, stats, quality eller insights endres.</p>
               </div>
               <div className="badge-soft">API</div>
             </div>
