@@ -1,5 +1,15 @@
 const changes = [
   {
+    version: 'V2.13',
+    title: 'Tracker Insights',
+    items: [
+      'Lagt til /api/tracker/insights som oppsummerer trackerhistorikk, market insights og anbefalte neste tiltak.',
+      'Lagt til egen Insights-side med recommendations, market insights, quality mix og tracker summary.',
+      'Koblet Insights inn i den kompakte menyen.',
+      'Utvidet Status, API reference og QA med insights-sjekker.',
+    ],
+  },
+  {
     version: 'V2.12',
     title: 'Oppdatert guide og databaseplan',
     items: [
