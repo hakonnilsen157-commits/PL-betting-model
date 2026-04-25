@@ -8,6 +8,10 @@ const qaChecks = [
     description: 'Upstash setup skal vise Redis-steg, environment variables, verifisering og vanlige feil.',
   },
   {
+    title: 'Persistent test fungerer',
+    description: 'Persistent test skal vise redeploy-test, pass criteria, fail criteria og snarveier til storage-sider.',
+  },
+  {
     title: 'Quick test fungerer',
     description: 'Quick test skal vise kort testrekkefølge, forventet resultat og GitHub issue #2-informasjon.',
   },
@@ -66,6 +70,7 @@ const deployChecks = [
   'Kontroller at commit-hashen i Vercel matcher siste commit i GitHub.',
   'Åpne Deploy checklist etter deploy.',
   'Åpne Upstash setup hvis du skal teste persistent historikk.',
+  'Åpne Persistent test etter Upstash-oppsett og redeploy.',
   'Åpne Quick test og følg testrekkefølgen.',
   'Åpne Test lab i inkognito eller ny fane etter deploy.',
   'Trykk Oppdater alt i Test lab og sjekk at API probes er OK.',
@@ -104,6 +109,15 @@ const upstashFlowChecks = [
   'Åpne Status og sjekk storageMode upstash-redis.',
   'Åpne Diagnostics og sjekk persistent storage-check.',
   'Lagre snapshot, redeploy og bekreft at historikken fortsatt finnes.',
+];
+
+const persistentFlowChecks = [
+  'Åpne /persistent-test.',
+  'Lagre snapshot eller seed demo-data i Test lab.',
+  'Noter open rows og settled rows før redeploy.',
+  'Redeploy appen i Vercel.',
+  'Åpne Test lab, Status eller Diagnostics etter redeploy.',
+  'Bekreft at historikken fortsatt finnes og at storageMode er upstash-redis.',
 ];
 
 const testLabFlowChecks = [
@@ -214,6 +228,25 @@ export default function QAPage() {
 
             <div className="reason-list">
               {upstashFlowChecks.map((item, index) => (
+                <div key={item} className="reason-card">
+                  <span className="reason-number">{index + 1}</span>
+                  <div className="metric-pill-value">{item}</div>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          <section className="list-card">
+            <div className="list-card-header">
+              <div>
+                <h2 className="section-title" style={{ marginBottom: 0 }}>Persistent test flow</h2>
+                <p className="section-subtitle">Sjekk at trackerhistorikk overlever redeploy.</p>
+              </div>
+              <div className="badge-soft">Persist</div>
+            </div>
+
+            <div className="reason-list">
+              {persistentFlowChecks.map((item, index) => (
                 <div key={item} className="reason-card">
                   <span className="reason-number">{index + 1}</span>
                   <div className="metric-pill-value">{item}</div>
