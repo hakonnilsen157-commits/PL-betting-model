@@ -1,5 +1,15 @@
 const changes = [
   {
+    version: 'V2.16',
+    title: 'Tracker Diagnostics',
+    items: [
+      'Lagt til /api/tracker/diagnostics med readiness score, checks og issues for tracker-oppsettet.',
+      'Lagt til egen Diagnostics-side med readiness, storage, quality score, rows og performance summary.',
+      'Koblet Diagnostics inn i menyen og Status-siden.',
+      'Oppdatert API reference og QA med diagnostics-rute, diagnostics-side og persistent storage-check.',
+    ],
+  },
+  {
     version: 'V2.15',
     title: 'Backtest bruker Insights',
     items: [
