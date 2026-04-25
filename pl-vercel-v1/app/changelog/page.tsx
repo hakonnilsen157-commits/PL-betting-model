@@ -1,5 +1,15 @@
 const changes = [
   {
+    version: 'V2.11',
+    title: 'Storage-status og Redis-verifisering',
+    items: [
+      'Lagt til /api/tracker/storage-status for å vise storage mode, Redis-konfigurasjon og tracker-store summary.',
+      'Utvidet Status-siden med Redis ping, storage mode og storage-status probe.',
+      'Oppdatert API reference med storage-status-rute og quick test-lenke.',
+      'Utvidet Setup og QA med konkrete steg for å verifisere at trackerhistorikk overlever redeploy med Upstash Redis.',
+    ],
+  },
+  {
     version: 'V2.10',
     title: 'Kompakt mobilmeny',
     items: [
