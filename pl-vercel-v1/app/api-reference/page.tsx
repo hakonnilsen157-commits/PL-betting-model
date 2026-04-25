@@ -16,6 +16,16 @@ const endpoints = [
   },
   {
     method: 'GET',
+    path: '/api/tracker/snapshot',
+    purpose: 'Bygger server-side snapshot av anbefalinger som kan lagres i tracker-store.',
+  },
+  {
+    method: 'POST',
+    path: '/api/tracker/snapshot',
+    purpose: 'Lagrer server-side snapshot direkte til tracker-store.',
+  },
+  {
+    method: 'GET',
     path: '/api/tracker/history',
     purpose: 'Henter trackerhistorikk med åpne og avgjorte picks.',
   },
@@ -73,6 +83,7 @@ const endpoints = [
 
 const usageNotes = [
   'API-rutene bør brukes av appen, ikke direkte fra klientkode mot eksterne API-er.',
+  'Snapshot-ruten gjør at V2 Tracker kan lagre anbefalinger server-side uten å bygge tracker-rader i klienten.',
   'Trackerhistorikk bør etter hvert lagres i persistent database eller Redis.',
   'Export-rutene gjør det enklere å hente historikk ut til Excel eller videre analyse.',
   'Stats-ruten bør bli grunnlaget for ekte backtest-dashboardet.',
@@ -85,6 +96,11 @@ const quickTests = [
     title: 'Health',
     href: '/api/health',
     text: 'Åpne health-check direkte.',
+  },
+  {
+    title: 'Tracker snapshot',
+    href: '/api/tracker/snapshot',
+    text: 'Se server-bygde tracker-rader fra anbefalingene.',
   },
   {
     title: 'Tracker stats',
