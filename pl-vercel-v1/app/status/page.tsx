@@ -55,6 +55,14 @@ type TrackerInsightsResponse = {
   marketInsights?: unknown[];
 };
 
+type TrackerDiagnosticsResponse = {
+  ok?: boolean;
+  readinessScore?: number;
+  readinessBand?: string;
+  issues?: string[];
+  readinessChecks?: unknown[];
+};
+
 type StorageStatusResponse = {
   ok?: boolean;
   storageMode?: string;
@@ -116,6 +124,7 @@ export default function StatusPage() {
   const [trackerQuality, setTrackerQuality] = useState<TrackerQualityResponse | null>(null);
   const [trackerSnapshot, setTrackerSnapshot] = useState<TrackerSnapshotResponse | null>(null);
   const [trackerInsights, setTrackerInsights] = useState<TrackerInsightsResponse | null>(null);
+  const [trackerDiagnostics, setTrackerDiagnostics] = useState<TrackerDiagnosticsResponse | null>(null);
   const [storageStatus, setStorageStatus] = useState<StorageStatusResponse | null>(null);
   const [endpointStatuses, setEndpointStatuses] = useState<EndpointStatus[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -126,13 +135,14 @@ export default function StatusPage() {
     setError(null);
 
     try {
-      const [healthResponse, liveStatusResponse, trackerStatsResponse, trackerQualityResponse, trackerSnapshotResponse, trackerInsightsResponse, storageStatusResponse, probes] = await Promise.all([
+      const [healthResponse, liveStatusResponse, trackerStatsResponse, trackerQualityResponse, trackerSnapshotResponse, trackerInsightsResponse, trackerDiagnosticsResponse, storageStatusResponse, probes] = await Promise.all([
         fetch('/api/health', { cache: 'no-store' }),
         fetch('/api/live-status', { cache: 'no-store' }),
         fetch('/api/tracker/stats', { cache: 'no-store' }),
         fetch('/api/tracker/quality', { cache: 'no-store' }),
         fetch('/api/tracker/snapshot', { cache: 'no-store' }),
         fetch('/api/tracker/insights', { cache: 'no-store' }),
+        fetch('/api/tracker/diagnostics', { cache: 'no-store' }),
         fetch('/api/tracker/storage-status', { cache: 'no-store' }),
         Promise.all([
           probeEndpoint('Fixtures', '/api/fixtures'),
@@ -141,19 +151,21 @@ export default function StatusPage() {
           probeEndpoint('Tracker stats', '/api/tracker/stats'),
           probeEndpoint('Tracker quality', '/api/tracker/quality'),
           probeEndpoint('Tracker insights', '/api/tracker/insights'),
+          probeEndpoint('Tracker diagnostics', '/api/tracker/diagnostics'),
           probeEndpoint('Storage status', '/api/tracker/storage-status'),
           probeEndpoint('Tracker export', '/api/tracker/export'),
           probeEndpoint('Seed demo preview', '/api/tracker/seed-demo'),
         ]),
       ]);
 
-      const [healthJson, liveStatusJson, trackerStatsJson, trackerQualityJson, trackerSnapshotJson, trackerInsightsJson, storageStatusJson] = await Promise.all([
+      const [healthJson, liveStatusJson, trackerStatsJson, trackerQualityJson, trackerSnapshotJson, trackerInsightsJson, trackerDiagnosticsJson, storageStatusJson] = await Promise.all([
         healthResponse.json(),
         liveStatusResponse.json(),
         trackerStatsResponse.json(),
         trackerQualityResponse.json(),
         trackerSnapshotResponse.json(),
         trackerInsightsResponse.json(),
+        trackerDiagnosticsResponse.json(),
         storageStatusResponse.json(),
       ]);
 
@@ -163,6 +175,7 @@ export default function StatusPage() {
       setTrackerQuality(trackerQualityJson);
       setTrackerSnapshot(trackerSnapshotJson);
       setTrackerInsights(trackerInsightsJson);
+      setTrackerDiagnostics(trackerDiagnosticsJson);
       setStorageStatus(storageStatusJson);
       setEndpointStatuses(probes);
     } catch (err) {
@@ -193,7 +206,7 @@ export default function StatusPage() {
             <div className="eyebrow">Premier League Betting Model</div>
             <h1 className="hero-title">Systemstatus</h1>
             <p className="hero-subtitle">
-              En teknisk status-side som viser app health, datamodus, tracker-store, Redis, snapshot, quality score, insights og API-ruter.
+              En teknisk status-side som viser app health, datamodus, tracker-store, Redis, snapshot, quality score, insights, diagnostics og API-ruter.
             </p>
           </div>
           <button type="button" onClick={loadStatus} className="app-nav-link" disabled={loading}>
@@ -211,8 +224,8 @@ export default function StatusPage() {
             <div className="summary-value green">{health?.ok ? 'OK' : loading ? '...' : 'Feil'}</div>
           </div>
           <div className="summary-card">
-            <div className="summary-label">Storage</div>
-            <div className="summary-value" style={{ fontSize: 20 }}>{storageStatus?.storageMode ?? trackerStats?.storageMode ?? '–'}</div>
+            <div className="summary-label">Readiness</div>
+            <div className="summary-value green">{typeof trackerDiagnostics?.readinessScore === 'number' ? `${trackerDiagnostics.readinessScore}%` : '–'}</div>
           </div>
           <div className="summary-card">
             <div className="summary-label">Insights</div>
@@ -279,6 +292,13 @@ export default function StatusPage() {
 
         <aside className="right-column">
           <section className="detail-card">
+            <h2 className="section-title">Diagnostics</h2>
+            <p className="section-subtitle">
+              Readiness: {typeof trackerDiagnostics?.readinessScore === 'number' ? `${trackerDiagnostics.readinessScore}%` : '–'} · Band: {trackerDiagnostics?.readinessBand ?? '–'} · Issues: {trackerDiagnostics?.issues?.length ?? 0}
+            </p>
+          </section>
+
+          <section className="detail-card" style={{ marginTop: 16 }}>
             <h2 className="section-title">Tracker store</h2>
             <p className="section-subtitle">
               Storage: {storageStatus?.storageMode ?? trackerStats?.storageMode ?? '–'} · Pending: {trackerStats?.summary?.pendingCount ?? storageStatus?.summary?.openRows ?? '–'} · Settled: {trackerStats?.summary?.settledCount ?? storageStatus?.summary?.settledRows ?? '–'}
