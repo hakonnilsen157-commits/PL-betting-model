@@ -9,11 +9,12 @@ const phases = [
     ],
   },
   {
-    title: 'Fase 2: Tracker og stats',
+    title: 'Fase 2: Tracker, stats og quality',
     status: 'Pågår',
     items: [
       'V2 Tracker har pending/settled-filter, datakvalitet og eksport',
       'Stats-siden viser ROI, hit rate, market stats og profittrend fra API',
+      'Quality-siden viser quality score, issue counts og svakeste tracker-rader',
       'Seed demo, reset store, auto-settle og CSV/JSON export er tilgjengelig fra UI',
     ],
   },
@@ -23,7 +24,7 @@ const phases = [
     items: [
       'Koble Upstash Redis i Vercel for å bevare trackerhistorikk etter deploys',
       'Bruke /api/tracker/history som felles skrivepunkt for tracker-data',
-      'Validere at stats og backtest leser korrekt fra persistent store',
+      'Validere at stats, backtest og quality leser korrekt fra persistent store',
     ],
   },
   {
@@ -32,7 +33,7 @@ const phases = [
     items: [
       'Bruke live resultater til automatisk settlement når API-nøkkel er satt',
       'Skille tydelig mellom live, partial-live, seed-demo og fallback-data',
-      'Legge strengere filter på picks med lav datakvalitet eller lav confidence',
+      'Bruke quality score til å flagge picks med svak datakvalitet, lav EV eller lav confidence',
     ],
   },
   {
@@ -64,7 +65,7 @@ export default function RoadmapPage() {
         <div className="summary-grid" style={{ marginTop: 20 }}>
           <div className="summary-card">
             <div className="summary-label">Nåværende status</div>
-            <div className="summary-value">V2</div>
+            <div className="summary-value">V2.8</div>
           </div>
           <div className="summary-card">
             <div className="summary-label">Deploy</div>
