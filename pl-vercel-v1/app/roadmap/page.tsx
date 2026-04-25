@@ -9,12 +9,13 @@ const phases = [
     ],
   },
   {
-    title: 'Fase 2: Tracker, stats og quality',
+    title: 'Fase 2: Tracker, stats, quality og insights',
     status: 'Nesten ferdig',
     items: [
       'V2 Tracker bruker server snapshot API og tracker-store i stedet for lokal bygging i klienten',
       'Stats-siden viser ROI, hit rate, market stats og profittrend fra API',
       'Quality-siden viser quality score, issue counts og svakeste tracker-rader',
+      'Insights-siden foreslår neste tiltak basert på ROI, sample size, market performance og datakvalitet',
       'Seed demo, reset store, auto-settle og CSV/JSON export er tilgjengelig fra UI',
     ],
   },
@@ -34,7 +35,7 @@ const phases = [
     items: [
       'Bruke live resultater til automatisk settlement når API-nøkkel er satt',
       'Skille tydelig mellom live, partial-live, seed-demo og fallback-data',
-      'Bruke quality score til å flagge picks med svak datakvalitet, lav EV eller lav confidence',
+      'Bruke quality score og insights til å flagge picks med svak datakvalitet, lav EV eller lav confidence',
     ],
   },
   {
@@ -66,7 +67,7 @@ export default function RoadmapPage() {
         <div className="summary-grid" style={{ marginTop: 20 }}>
           <div className="summary-card">
             <div className="summary-label">Nåværende status</div>
-            <div className="summary-value">V2.12</div>
+            <div className="summary-value">V2.13</div>
           </div>
           <div className="summary-card">
             <div className="summary-label">Deploy</div>
