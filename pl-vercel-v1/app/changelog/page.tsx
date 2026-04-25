@@ -1,5 +1,15 @@
 const changes = [
   {
+    version: 'V2.12',
+    title: 'Oppdatert guide og databaseplan',
+    items: [
+      'Oppdatert Guide med server snapshot workflow, storage mode og Redis/server-memory forklaring.',
+      'Oppdatert Database plan med dagens V2.11 storage-flow og aktuelle tracker-API-ruter.',
+      'Lagt inn fremtidige tabeller for tracker_snapshots og tracker_picks.',
+      'Tydeliggjort veien fra server-memory til Upstash Redis og senere Postgres.',
+    ],
+  },
+  {
     version: 'V2.11',
     title: 'Storage-status og Redis-verifisering',
     items: [
