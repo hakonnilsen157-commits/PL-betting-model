@@ -1,42 +1,46 @@
 const steps = [
   {
-    title: '1. Start med Test lab',
+    title: '1. Sjekk deploy først',
+    text: 'Bruk Deploy checklist etter hver Vercel deploy. Den gir deg riktig rekkefølge for test og feilsøking.',
+  },
+  {
+    title: '2. Start med Test lab',
     text: 'Bruk Test lab når du vil prøve V2 raskt. Der kan du kjøre snapshot, demo-data, auto-settle, reset, API probes og export fra samme sted.',
   },
   {
-    title: '2. Start med Dashboard',
+    title: '3. Start med Dashboard',
     text: 'Bruk dashboardet for å se kamper, beste anbefalinger, EV, confidence og modellens korte forklaring per spill.',
   },
   {
-    title: '3. Filtrer på marked og EV',
+    title: '4. Filtrer på marked og EV',
     text: 'Juster marked og minimum EV for å se om det finnes færre, men tydeligere verdi-cases.',
   },
   {
-    title: '4. Lagre server snapshot i V2 Tracker',
+    title: '5. Lagre server snapshot i V2 Tracker',
     text: 'V2 Tracker bruker server snapshot API-et for å bygge og lagre anbefalinger til tracker-store.',
   },
   {
-    title: '5. Følg pending og settled',
+    title: '6. Følg pending og settled',
     text: 'Tracker-siden viser pending picks, settled historikk, datakvalitet, eksport og auto-settlement handlinger.',
   },
   {
-    title: '6. Bruk Stats',
+    title: '7. Bruk Stats',
     text: 'Stats-siden viser ROI, hit rate, market stats, profit trend og gir deg knapper for seed demo, auto-settle, reset og eksport.',
   },
   {
-    title: '7. Bruk Quality',
+    title: '8. Bruk Quality',
     text: 'Quality-siden viser hvilke tracker-rader som har svak datakvalitet, manglende felt, lav EV eller lav confidence.',
   },
   {
-    title: '8. Bruk Insights',
+    title: '9. Bruk Insights',
     text: 'Insights-siden oppsummerer trackerhistorikken og foreslår neste tiltak basert på ROI, sample size, marked og datakvalitet.',
   },
   {
-    title: '9. Bruk Diagnostics',
+    title: '10. Bruk Diagnostics',
     text: 'Diagnostics-siden gir en readiness score og viser om tracker-oppsettet er klart for mer seriøs testing.',
   },
   {
-    title: '10. Sjekk Status ved feil',
+    title: '11. Sjekk Status ved feil',
     text: 'Status-siden viser health, API probes, storage mode, Redis ping, tracker store, quality score, insights, diagnostics og om API-nøkler er satt.',
   },
 ];
@@ -50,6 +54,7 @@ const rules = [
 ];
 
 const workflow = [
+  'Deploy checklist: sjekk at ny Vercel deploy er klar og testbar.',
   'Test lab: rask test av snapshot, seed demo, auto-settle, reset, probes og export.',
   'Dashboard: finn mulige verdi-cases.',
   'V2 Tracker: lagre server snapshot og følg pending/settled.',
@@ -59,6 +64,13 @@ const workflow = [
   'Diagnostics: sjekk om tracker-oppsettet er klart for seriøs testing.',
   'Status: sjekk storage mode, Redis ping og API health hvis noe virker rart.',
   'Backtest: vurder hvilke markeder som faktisk fungerer over tid.',
+];
+
+const deployGuide = [
+  'Sjekk at Vercel deployment står som Ready før du tester.',
+  'Åpne Deploy checklist etter deploy og følg punktene derfra.',
+  'Start gjerne med Quick test og Test lab for rask verifisering.',
+  'Hvis noe feiler, gå til Status, Diagnostics og API reference før du endrer kode.',
 ];
 
 const testLabGuide = [
@@ -112,9 +124,9 @@ export default function GuidePage() {
             <div className="list-card-header">
               <div>
                 <h2 className="section-title" style={{ marginBottom: 0 }}>Slik bruker du appen</h2>
-                <p className="section-subtitle">En enkel flyt fra test til analyse, logging, stats, quality, insights, diagnostics og storage check.</p>
+                <p className="section-subtitle">En enkel flyt fra deploy-test til analyse, logging, stats, quality, insights, diagnostics og storage check.</p>
               </div>
-              <div className="badge-soft">10 steg</div>
+              <div className="badge-soft">11 steg</div>
             </div>
 
             <div className="metrics-grid" style={{ marginTop: 14 }}>
@@ -139,6 +151,25 @@ export default function GuidePage() {
 
             <div className="reason-list">
               {workflow.map((item, index) => (
+                <div key={item} className="reason-card">
+                  <span className="reason-number">{index + 1}</span>
+                  <div className="metric-pill-value">{item}</div>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          <section className="list-card">
+            <div className="list-card-header">
+              <div>
+                <h2 className="section-title" style={{ marginBottom: 0 }}>Deploy guide</h2>
+                <p className="section-subtitle">Hva du gjør rett etter ny Vercel deploy.</p>
+              </div>
+              <div className="badge-soft">Deploy</div>
+            </div>
+
+            <div className="reason-list">
+              {deployGuide.map((item, index) => (
                 <div key={item} className="reason-card">
                   <span className="reason-number">{index + 1}</span>
                   <div className="metric-pill-value">{item}</div>
@@ -247,6 +278,13 @@ export default function GuidePage() {
 
         <aside className="right-column">
           <section className="detail-card">
+            <h2 className="section-title">Hva betyr Deploy checklist?</h2>
+            <p className="section-subtitle">
+              Deploy checklist er siden du bruker rett etter Vercel har bygget ny versjon. Den hjelper deg å teste raskt og strukturert.
+            </p>
+          </section>
+
+          <section className="detail-card" style={{ marginTop: 16 }}>
             <h2 className="section-title">Hva betyr Test lab?</h2>
             <p className="section-subtitle">
               Test lab er en samlet testside for V2-flyten. Den gjør det enklere å prøve appen uten å hoppe mellom mange sider.
