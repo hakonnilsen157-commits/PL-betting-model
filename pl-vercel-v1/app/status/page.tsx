@@ -42,6 +42,13 @@ type TrackerQualityResponse = {
   };
 };
 
+type TrackerSnapshotResponse = {
+  ok?: boolean;
+  rows?: unknown[];
+  source?: string;
+  generatedAt?: string;
+};
+
 type EndpointStatus = {
   name: string;
   path: string;
@@ -86,6 +93,7 @@ export default function StatusPage() {
   const [liveStatus, setLiveStatus] = useState<LiveStatusResponse | null>(null);
   const [trackerStats, setTrackerStats] = useState<TrackerStatsResponse | null>(null);
   const [trackerQuality, setTrackerQuality] = useState<TrackerQualityResponse | null>(null);
+  const [trackerSnapshot, setTrackerSnapshot] = useState<TrackerSnapshotResponse | null>(null);
   const [endpointStatuses, setEndpointStatuses] = useState<EndpointStatus[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -95,13 +103,15 @@ export default function StatusPage() {
     setError(null);
 
     try {
-      const [healthResponse, liveStatusResponse, trackerStatsResponse, trackerQualityResponse, probes] = await Promise.all([
+      const [healthResponse, liveStatusResponse, trackerStatsResponse, trackerQualityResponse, trackerSnapshotResponse, probes] = await Promise.all([
         fetch('/api/health', { cache: 'no-store' }),
         fetch('/api/live-status', { cache: 'no-store' }),
         fetch('/api/tracker/stats', { cache: 'no-store' }),
         fetch('/api/tracker/quality', { cache: 'no-store' }),
+        fetch('/api/tracker/snapshot', { cache: 'no-store' }),
         Promise.all([
           probeEndpoint('Fixtures', '/api/fixtures'),
+          probeEndpoint('Tracker snapshot', '/api/tracker/snapshot'),
           probeEndpoint('Tracker history', '/api/tracker/history'),
           probeEndpoint('Tracker stats', '/api/tracker/stats'),
           probeEndpoint('Tracker quality', '/api/tracker/quality'),
@@ -110,17 +120,19 @@ export default function StatusPage() {
         ]),
       ]);
 
-      const [healthJson, liveStatusJson, trackerStatsJson, trackerQualityJson] = await Promise.all([
+      const [healthJson, liveStatusJson, trackerStatsJson, trackerQualityJson, trackerSnapshotJson] = await Promise.all([
         healthResponse.json(),
         liveStatusResponse.json(),
         trackerStatsResponse.json(),
         trackerQualityResponse.json(),
+        trackerSnapshotResponse.json(),
       ]);
 
       setHealth(healthJson);
       setLiveStatus(liveStatusJson);
       setTrackerStats(trackerStatsJson);
       setTrackerQuality(trackerQualityJson);
+      setTrackerSnapshot(trackerSnapshotJson);
       setEndpointStatuses(probes);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Ukjent statusfeil');
@@ -150,7 +162,7 @@ export default function StatusPage() {
             <div className="eyebrow">Premier League Betting Model</div>
             <h1 className="hero-title">Systemstatus</h1>
             <p className="hero-subtitle">
-              En teknisk status-side som viser app health, datamodus, tracker-store, quality score, API-ruter og om live API-nøkler er konfigurert.
+              En teknisk status-side som viser app health, datamodus, tracker-store, snapshot, quality score, API-ruter og om live API-nøkler er konfigurert.
             </p>
           </div>
           <button type="button" onClick={loadStatus} className="app-nav-link" disabled={loading}>
@@ -168,8 +180,8 @@ export default function StatusPage() {
             <div className="summary-value green">{health?.ok ? 'OK' : loading ? '...' : 'Feil'}</div>
           </div>
           <div className="summary-card">
-            <div className="summary-label">Datamodus</div>
-            <div className="summary-value">{liveStatus?.dataMode ?? health?.dataMode ?? '–'}</div>
+            <div className="summary-label">Snapshot rows</div>
+            <div className="summary-value">{trackerSnapshot?.rows?.length ?? '–'}</div>
           </div>
           <div className="summary-card">
             <div className="summary-label">Quality score</div>
@@ -207,8 +219,8 @@ export default function StatusPage() {
                 <div className="summary-value" style={{ fontSize: 20 }}>{dataQuality}</div>
               </div>
               <div className="summary-card">
-                <div className="summary-label">Odds regioner</div>
-                <div className="summary-value" style={{ fontSize: 20 }}>{liveStatus?.oddsRegions ?? '–'}</div>
+                <div className="summary-label">Snapshot source</div>
+                <div className="summary-value" style={{ fontSize: 20 }}>{trackerSnapshot?.source ?? '–'}</div>
               </div>
             </div>
           </section>
@@ -249,6 +261,13 @@ export default function StatusPage() {
             <h2 className="section-title">Quality mix</h2>
             <p className="section-subtitle">
               Total rows: {trackerQuality?.summary?.totalRows ?? '–'} · Green: {trackerQuality?.summary?.greenRows ?? 0} · Yellow: {trackerQuality?.summary?.yellowRows ?? 0} · Red: {trackerQuality?.summary?.redRows ?? 0}
+            </p>
+          </section>
+
+          <section className="detail-card" style={{ marginTop: 16 }}>
+            <h2 className="section-title">Snapshot</h2>
+            <p className="section-subtitle">
+              Source: {trackerSnapshot?.source ?? '–'} · Generated: {formatDate(trackerSnapshot?.generatedAt)} · Rows: {trackerSnapshot?.rows?.length ?? 0}
             </p>
           </section>
 
