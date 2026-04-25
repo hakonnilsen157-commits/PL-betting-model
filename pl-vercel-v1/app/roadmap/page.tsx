@@ -10,9 +10,9 @@ const phases = [
   },
   {
     title: 'Fase 2: Tracker, stats og quality',
-    status: 'Pågår',
+    status: 'Nesten ferdig',
     items: [
-      'V2 Tracker har pending/settled-filter, datakvalitet og eksport',
+      'V2 Tracker bruker server snapshot API og tracker-store i stedet for lokal bygging i klienten',
       'Stats-siden viser ROI, hit rate, market stats og profittrend fra API',
       'Quality-siden viser quality score, issue counts og svakeste tracker-rader',
       'Seed demo, reset store, auto-settle og CSV/JSON export er tilgjengelig fra UI',
@@ -23,8 +23,8 @@ const phases = [
     status: 'Neste',
     items: [
       'Koble Upstash Redis i Vercel for å bevare trackerhistorikk etter deploys',
-      'Bruke /api/tracker/history som felles skrivepunkt for tracker-data',
-      'Validere at stats, backtest og quality leser korrekt fra persistent store',
+      'Validere at /api/tracker/snapshot, history, stats og quality bruker samme persistent store',
+      'Test at pending/settled historikk fortsatt finnes etter ny deploy',
     ],
   },
   {
@@ -65,7 +65,7 @@ export default function RoadmapPage() {
         <div className="summary-grid" style={{ marginTop: 20 }}>
           <div className="summary-card">
             <div className="summary-label">Nåværende status</div>
-            <div className="summary-value">V2.8</div>
+            <div className="summary-value">V2.9</div>
           </div>
           <div className="summary-card">
             <div className="summary-label">Deploy</div>
@@ -73,7 +73,7 @@ export default function RoadmapPage() {
           </div>
           <div className="summary-card">
             <div className="summary-label">Tracker</div>
-            <div className="summary-value">API + UI</div>
+            <div className="summary-value">Server API</div>
           </div>
           <div className="summary-card">
             <div className="summary-label">Neste mål</div>
