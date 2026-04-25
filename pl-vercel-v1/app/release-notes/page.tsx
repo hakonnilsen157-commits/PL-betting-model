@@ -3,6 +3,7 @@ const highlights = [
   'Trackerflyten kan testes fra én samlet side med snapshot, seed demo, auto-settle, reset og eksport.',
   'Persistent historikk er forberedt med Upstash Redis og egen redeploy-test.',
   'Guide, QA, Roadmap, Changelog og GitHub issue #2 er oppdatert med dagens testflyt.',
+  'GitHub issue #3 er opprettet som manuell V2.21-oppgave for Upstash Redis i Vercel.',
 ];
 
 const testOrder = [
@@ -11,6 +12,12 @@ const testOrder = [
   { href: '/test-lab', label: '3. Test lab', text: 'Kjør snapshot, demo-data, auto-settle og eksport.' },
   { href: '/upstash-setup', label: '4. Upstash setup', text: 'Sett opp persistent Redis-lagring.' },
   { href: '/persistent-test', label: '5. Persistent test', text: 'Bekreft at historikk overlever redeploy.' },
+];
+
+const manualTasks = [
+  'Issue #2 brukes til V2.20 deploy-testen.',
+  'Issue #3 brukes til V2.21 Upstash-oppsett i Vercel.',
+  'Når Upstash er satt opp, kjør Persistent test før historikken brukes seriøst.',
 ];
 
 export default function ReleaseNotesPage() {
@@ -60,6 +67,18 @@ export default function ReleaseNotesPage() {
                     <p className="section-subtitle" style={{ marginTop: 4 }}>{item.text}</p>
                   </div>
                 </a>
+              ))}
+            </div>
+          </section>
+
+          <section className="detail-card" style={{ marginTop: 16 }}>
+            <h2 className="section-title">Manuelle GitHub-oppgaver</h2>
+            <div className="reason-list" style={{ marginTop: 16 }}>
+              {manualTasks.map((item, index) => (
+                <div key={item} className="reason-card">
+                  <span className="reason-number">{index + 1}</span>
+                  <div className="metric-pill-value">{item}</div>
+                </div>
               ))}
             </div>
           </section>
