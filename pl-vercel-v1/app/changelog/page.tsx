@@ -1,5 +1,16 @@
 const changes = [
   {
+    version: 'V2.21',
+    title: 'Release notes og Upstash issue',
+    items: [
+      'Lagt til /release-notes som kort oversikt over siste versjon og anbefalt testrekkefølge.',
+      'Koblet Release notes inn i menyen under Prosjekt.',
+      'Oppdatert Guide med Release notes som første steg og 14-stegs arbeidsflyt.',
+      'Opprettet GitHub issue #3 som manuell V2.21-oppgave for Upstash Redis i Vercel.',
+      'Oppdatert Release notes med skille mellom issue #2 for deploy-test og issue #3 for Upstash-oppsett.',
+    ],
+  },
+  {
     version: 'V2.20',
     title: 'Upstash og persistent testing',
     items: [
