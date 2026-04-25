@@ -1,5 +1,15 @@
 const changes = [
   {
+    version: 'V2.9',
+    title: 'Server snapshot og tracker-store flyt',
+    items: [
+      'Lagt til /api/tracker/snapshot for å bygge tracker-rader server-side fra anbefalinger.',
+      'Oppdatert V2 Tracker til å bruke server snapshot i stedet for å bygge tracker-rader i klienten.',
+      'Utvidet Status med snapshot rows, snapshot source og tracker snapshot probe.',
+      'Utvidet QA med egen server snapshot → tracker-store → stats/quality/export testflyt.',
+    ],
+  },
+  {
     version: 'V2.8',
     title: 'Quality layer og helsesjekk',
     items: [
