@@ -1,5 +1,9 @@
 const qaChecks = [
   {
+    title: 'Test lab fungerer',
+    description: 'Test lab skal vise API probes og knapper for snapshot, seed demo, auto-settle, reset og export.',
+  },
+  {
     title: 'Dashboard laster',
     description: 'Forsiden skal laste uten feilmelding og vise kamper, anbefalinger og filtre.',
   },
@@ -17,7 +21,7 @@ const qaChecks = [
   },
   {
     title: 'Server snapshot fungerer',
-    description: 'Trykk Save server snapshot i V2 Tracker og sjekk at pending øker eller oppdateres uten duplikatkaos.',
+    description: 'Trykk Save server snapshot i V2 Tracker eller Test lab og sjekk at pending øker eller oppdateres uten duplikatkaos.',
   },
   {
     title: 'Stats fungerer',
@@ -48,8 +52,9 @@ const qaChecks = [
 const deployChecks = [
   'Sjekk at nyeste deployment i Vercel står som Ready.',
   'Kontroller at commit-hashen i Vercel matcher siste commit i GitHub.',
-  'Åpne forsiden i inkognito eller ny fane etter deploy.',
-  'Test Dashboard, V2 Tracker, Stats, Quality, Insights, Diagnostics, Status og Changelog etter større endringer.',
+  'Åpne Test lab i inkognito eller ny fane etter deploy.',
+  'Trykk Oppdater alt i Test lab og sjekk at API probes er OK.',
+  'Test Dashboard, Test lab, V2 Tracker, Stats, Quality, Insights, Diagnostics, Status og Changelog etter større endringer.',
   'Hvis build feiler, les nederste del av Vercel build logs først.',
 ];
 
@@ -68,6 +73,16 @@ const apiChecks = [
   '/api/tracker/export?format=csv skal laste ned CSV.',
 ];
 
+const testLabFlowChecks = [
+  'Åpne /test-lab.',
+  'Trykk Oppdater alt og sjekk API probes.',
+  'Trykk Save snapshot og sjekk action log.',
+  'Trykk Seed demo for å fylle testdata.',
+  'Trykk Auto-settle for å teste settlementflyt.',
+  'Åpne CSV eller JSON export fra Test lab.',
+  'Bruk Reset store hvis du vil nullstille etter test.',
+];
+
 const trackerFlowChecks = [
   'Åpne V2 Tracker og sjekk at Server snapshot har rader.',
   'Trykk Save server snapshot.',
@@ -84,7 +99,7 @@ const redisFlowChecks = [
   'Åpne /api/tracker/storage-status og sjekk storageMode.',
   'Hvis Upstash ikke er satt: storageMode skal være server-memory og Redis skal vise Ikke satt.',
   'Hvis Upstash er satt: storageMode skal være upstash-redis og Redis ping skal være OK.',
-  'Lagre et server snapshot i V2 Tracker.',
+  'Lagre et server snapshot i Test lab eller V2 Tracker.',
   'Redeploy appen i Vercel.',
   'Åpne Status og sjekk at trackerhistorikken fortsatt finnes etter deploy.',
   'Åpne Diagnostics og sjekk at Persistent storage-check er OK når Upstash er satt.',
@@ -131,6 +146,25 @@ export default function QAPage() {
                   <div className="metric-pill-label">Sjekk</div>
                   <div className="metric-pill-value">{check.title}</div>
                   <p className="section-subtitle" style={{ marginTop: 8 }}>{check.description}</p>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          <section className="list-card">
+            <div className="list-card-header">
+              <div>
+                <h2 className="section-title" style={{ marginBottom: 0 }}>Test lab flow</h2>
+                <p className="section-subtitle">Raskeste måte å teste V2 i dag.</p>
+              </div>
+              <div className="badge-soft">Test lab</div>
+            </div>
+
+            <div className="reason-list">
+              {testLabFlowChecks.map((item, index) => (
+                <div key={item} className="reason-card">
+                  <span className="reason-number">{index + 1}</span>
+                  <div className="metric-pill-value">{item}</div>
                 </div>
               ))}
             </div>
