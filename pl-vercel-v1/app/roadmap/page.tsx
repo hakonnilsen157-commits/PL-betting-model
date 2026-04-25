@@ -1,38 +1,47 @@
 const phases = [
   {
     title: 'Fase 1: Stabil appen',
+    status: 'Fullført',
+    items: [
+      'Vercel build er grønn igjen etter typedRoutes-fiks',
+      'Global navigasjon er ryddet i App, Analyse og Prosjekt',
+      'Status- og QA-sider er på plass for enklere feilsøking',
+    ],
+  },
+  {
+    title: 'Fase 2: Tracker og stats',
     status: 'Pågår',
     items: [
-      'Sikre at Vercel build alltid går grønt',
-      'Rydde bort dupliserte komponenter og midlertidige løsninger',
-      'Ha en enkel tracker som viser åpne og avgjorte picks',
+      'V2 Tracker har pending/settled-filter, datakvalitet og eksport',
+      'Stats-siden viser ROI, hit rate, market stats og profittrend fra API',
+      'Seed demo, reset store, auto-settle og CSV/JSON export er tilgjengelig fra UI',
     ],
   },
   {
-    title: 'Fase 2: Bedre datagrunnlag',
+    title: 'Fase 3: Persistent historikk',
     status: 'Neste',
     items: [
-      'Koble fixtures, tabell, form og odds tydeligere sammen',
-      'Merke fallback-data tydelig slik at modellen ikke later som alt er live',
-      'Lage bedre forklaring på hvorfor et spill anbefales',
+      'Koble Upstash Redis i Vercel for å bevare trackerhistorikk etter deploys',
+      'Bruke /api/tracker/history som felles skrivepunkt for tracker-data',
+      'Validere at stats og backtest leser korrekt fra persistent store',
     ],
   },
   {
-    title: 'Fase 3: Ekte historikk',
+    title: 'Fase 4: Datakvalitet og settlement',
     status: 'Neste',
     items: [
-      'Flytte trackerhistorikk fra nettleser til database',
-      'Lagre alle anbefalinger med timestamp og oddsgrunnlag',
-      'Automatisk flytte kamper fra pending til settled etter kamp',
+      'Bruke live resultater til automatisk settlement når API-nøkkel er satt',
+      'Skille tydelig mellom live, partial-live, seed-demo og fallback-data',
+      'Legge strengere filter på picks med lav datakvalitet eller lav confidence',
     ],
   },
   {
-    title: 'Fase 4: Modellforbedring',
+    title: 'Fase 5: Modellforbedring',
     status: 'Senere',
     items: [
-      'Måle faktisk ROI per marked og confidence-nivå',
-      'Skru ned anbefalinger som historisk underpresterer',
-      'Legge inn strengere filter for usikre eller mangelfulle datakilder',
+      'Måle faktisk ROI per marked, EV-bånd og confidence-nivå',
+      'Skru ned eller fjerne markeder som historisk underpresterer',
+      'Bygge mer forklarbare anbefalinger med tydelig pluss/minus-signal per kamp',
     ],
   },
 ];
@@ -46,16 +55,16 @@ export default function RoadmapPage() {
             <div className="eyebrow">Premier League Betting Model</div>
             <h1 className="hero-title">Roadmap</h1>
             <p className="hero-subtitle">
-              En enkel utviklingsplan for å gjøre modellen mer stabil, mer datadrevet og mer nyttig over tid.
+              En oppdatert utviklingsplan for å gjøre modellen mer stabil, mer datadrevet og mer nyttig over tid.
             </p>
           </div>
-          <div className="updated-at">V1 → V2</div>
+          <div className="updated-at">V2 roadmap</div>
         </div>
 
         <div className="summary-grid" style={{ marginTop: 20 }}>
           <div className="summary-card">
             <div className="summary-label">Nåværende status</div>
-            <div className="summary-value">Live</div>
+            <div className="summary-value">V2</div>
           </div>
           <div className="summary-card">
             <div className="summary-label">Deploy</div>
@@ -63,11 +72,11 @@ export default function RoadmapPage() {
           </div>
           <div className="summary-card">
             <div className="summary-label">Tracker</div>
-            <div className="summary-value">V2</div>
+            <div className="summary-value">API + UI</div>
           </div>
           <div className="summary-card">
             <div className="summary-label">Neste mål</div>
-            <div className="summary-value">Data</div>
+            <div className="summary-value">Redis</div>
           </div>
         </div>
       </section>
@@ -105,10 +114,14 @@ export default function RoadmapPage() {
           </section>
 
           <section className="detail-card" style={{ marginTop: 16 }}>
-            <h2 className="section-title">Viktig merknad</h2>
+            <h2 className="section-title">V2-fokus</h2>
             <p className="section-subtitle">
-              Dette er et analyseverktøy og ikke en garanti for gevinst. Alle anbefalinger bør behandles som hypoteser som må testes mot faktisk historikk.
+              Hovedfokus videre er persistent trackerhistorikk, trygg auto-settlement, mer ekte backtest og klarere datakvalitet per anbefaling.
             </p>
+          </section>
+
+          <section className="warning-box">
+            Dette er et analyseverktøy og ikke en garanti for gevinst. Alle anbefalinger bør behandles som hypoteser som må testes mot faktisk historikk.
           </section>
         </aside>
       </section>
