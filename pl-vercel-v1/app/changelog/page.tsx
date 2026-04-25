@@ -1,5 +1,15 @@
 const changes = [
   {
+    version: 'V2.14',
+    title: 'Insights i brukerguiden',
+    items: [
+      'Oppdatert Guide med 8-stegs arbeidsflyt der Insights er eget steg.',
+      'Lagt til egen Insights guide som forklarer hvordan anbefalingene bør tolkes.',
+      'Utvidet anbefalt arbeidsflyt med Dashboard → Tracker → Stats → Quality → Insights → Status → Backtest.',
+      'Lagt inn forklaring av hva Insights betyr i sidepanelet på Guide-siden.',
+    ],
+  },
+  {
     version: 'V2.13',
     title: 'Tracker Insights',
     items: [
