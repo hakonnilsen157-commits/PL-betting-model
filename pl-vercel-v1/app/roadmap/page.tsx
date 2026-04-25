@@ -4,7 +4,7 @@ const phases = [
     status: 'Fullført',
     items: [
       'Vercel build er grønn igjen etter typedRoutes-fiks',
-      'Global navigasjon er ryddet i App, Analyse og Prosjekt',
+      'Global navigasjon er erstattet med kompakt Meny-knapp som fungerer bedre på mobil',
       'Status- og QA-sider er på plass for enklere feilsøking',
     ],
   },
@@ -65,7 +65,7 @@ export default function RoadmapPage() {
         <div className="summary-grid" style={{ marginTop: 20 }}>
           <div className="summary-card">
             <div className="summary-label">Nåværende status</div>
-            <div className="summary-value">V2.9</div>
+            <div className="summary-value">V2.10</div>
           </div>
           <div className="summary-card">
             <div className="summary-label">Deploy</div>
