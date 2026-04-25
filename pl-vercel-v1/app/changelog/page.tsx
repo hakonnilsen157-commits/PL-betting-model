@@ -1,5 +1,15 @@
 const changes = [
   {
+    version: 'V2.10',
+    title: 'Kompakt mobilmeny',
+    items: [
+      'Byttet stor toppnavigasjon til kompakt Meny-knapp som ikke dekker innholdet på mobil.',
+      'Flyttet navigasjonen til egen klientkomponent med aktiv side og automatisk lukking ved klikk.',
+      'Lagt til aktiv markering i menyen med blå highlight og checkmark.',
+      'Ryddet layout.tsx slik at layouten er enklere å vedlikeholde videre.',
+    ],
+  },
+  {
     version: 'V2.9',
     title: 'Server snapshot og tracker-store flyt',
     items: [
