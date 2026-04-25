@@ -46,6 +46,11 @@ const endpoints = [
   },
   {
     method: 'GET',
+    path: '/api/tracker/quality',
+    purpose: 'Returnerer quality score, issues og datakvalitet per tracker-rad.',
+  },
+  {
+    method: 'GET',
     path: '/api/tracker/export',
     purpose: 'Eksporterer trackerhistorikk som JSON.',
   },
@@ -71,6 +76,7 @@ const usageNotes = [
   'Trackerhistorikk bør etter hvert lagres i persistent database eller Redis.',
   'Export-rutene gjør det enklere å hente historikk ut til Excel eller videre analyse.',
   'Stats-ruten bør bli grunnlaget for ekte backtest-dashboardet.',
+  'Quality-ruten bør brukes for å oppdage svake data før modellen vurderes.',
   'Seed-demo-ruten er kun for testing og bør ikke brukes som ekte modellhistorikk.',
 ];
 
@@ -84,6 +90,11 @@ const quickTests = [
     title: 'Tracker stats',
     href: '/api/tracker/stats',
     text: 'Se rå statsrespons i JSON.',
+  },
+  {
+    title: 'Tracker quality',
+    href: '/api/tracker/quality',
+    text: 'Se quality score og issues i tracker-store.',
   },
   {
     title: 'Export JSON',
