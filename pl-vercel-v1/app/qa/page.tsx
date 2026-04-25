@@ -32,8 +32,12 @@ const qaChecks = [
     description: 'Insights-siden skal vise anbefalte neste tiltak, market insights, storage mode og tracker summary.',
   },
   {
+    title: 'Diagnostics fungerer',
+    description: 'Diagnostics-siden skal vise readiness score, checks, issues, storage mode og quality score.',
+  },
+  {
     title: 'Status-siden svarer',
-    description: 'Status-siden skal hente health, live-status, storage-status, tracker snapshot, stats, quality, insights og endpoint probes uten feil.',
+    description: 'Status-siden skal hente health, live-status, storage-status, tracker snapshot, stats, quality, insights, diagnostics og endpoint probes uten feil.',
   },
   {
     title: 'Mobilvisning fungerer',
@@ -45,7 +49,7 @@ const deployChecks = [
   'Sjekk at nyeste deployment i Vercel står som Ready.',
   'Kontroller at commit-hashen i Vercel matcher siste commit i GitHub.',
   'Åpne forsiden i inkognito eller ny fane etter deploy.',
-  'Test Dashboard, V2 Tracker, Stats, Quality, Insights, Status og Changelog etter større endringer.',
+  'Test Dashboard, V2 Tracker, Stats, Quality, Insights, Diagnostics, Status og Changelog etter større endringer.',
   'Hvis build feiler, les nederste del av Vercel build logs først.',
 ];
 
@@ -53,6 +57,7 @@ const apiChecks = [
   '/api/health skal returnere ok: true.',
   '/api/fixtures skal returnere dashboard-data eller fallback-data.',
   '/api/tracker/storage-status skal returnere storageMode, redis og summary.',
+  '/api/tracker/diagnostics skal returnere readinessScore, readinessChecks og issues.',
   '/api/tracker/snapshot skal returnere rows, source og generatedAt.',
   'POST /api/tracker/snapshot skal lagre snapshot-rader til tracker-store.',
   '/api/tracker/history skal vise open og settled trackerhistorikk.',
@@ -70,6 +75,7 @@ const trackerFlowChecks = [
   'Åpne Stats og sjekk at Pending Count er oppdatert.',
   'Åpne Quality og sjekk at radene får quality score.',
   'Åpne Insights og sjekk at recommendations og market insights oppdateres.',
+  'Åpne Diagnostics og sjekk at readiness score og checks oppdateres.',
   'Trykk CSV export og bekreft at filen inneholder pending-radene.',
   'Trykk Reset store når testen er ferdig hvis du vil nullstille historikken.',
 ];
@@ -81,6 +87,7 @@ const redisFlowChecks = [
   'Lagre et server snapshot i V2 Tracker.',
   'Redeploy appen i Vercel.',
   'Åpne Status og sjekk at trackerhistorikken fortsatt finnes etter deploy.',
+  'Åpne Diagnostics og sjekk at Persistent storage-check er OK når Upstash er satt.',
 ];
 
 const bugTemplate = [
@@ -133,7 +140,7 @@ export default function QAPage() {
             <div className="list-card-header">
               <div>
                 <h2 className="section-title" style={{ marginBottom: 0 }}>Tracker flow</h2>
-                <p className="section-subtitle">Praktisk test av server-snapshot → tracker-store → stats/quality/insights/export.</p>
+                <p className="section-subtitle">Praktisk test av server-snapshot → tracker-store → stats/quality/insights/diagnostics/export.</p>
               </div>
               <div className="badge-soft">V2</div>
             </div>
@@ -171,7 +178,7 @@ export default function QAPage() {
             <div className="list-card-header">
               <div>
                 <h2 className="section-title" style={{ marginBottom: 0 }}>API-sjekker</h2>
-                <p className="section-subtitle">Ruter som bør testes når tracker, stats, quality eller insights endres.</p>
+                <p className="section-subtitle">Ruter som bør testes når tracker, stats, quality, insights eller diagnostics endres.</p>
               </div>
               <div className="badge-soft">API</div>
             </div>
