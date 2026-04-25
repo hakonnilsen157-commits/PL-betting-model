@@ -37,6 +37,7 @@ const navGroups: NavGroup[] = [
   {
     label: 'Prosjekt',
     links: [
+      { href: '/deploy-checklist', label: 'Deploy checklist' },
       { href: '/setup', label: 'Setup' },
       { href: '/api-reference', label: 'API' },
       { href: '/roadmap', label: 'Roadmap' },
