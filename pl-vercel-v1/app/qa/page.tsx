@@ -13,7 +13,11 @@ const qaChecks = [
   },
   {
     title: 'V2 Tracker laster',
-    description: 'Tracker-siden skal vise åpne picks, historikk, settlement queue og lokal tracker-flyt uten krasj.',
+    description: 'Tracker-siden skal vise server snapshot, pending, settled, handlinger og eksport uten krasj.',
+  },
+  {
+    title: 'Server snapshot fungerer',
+    description: 'Trykk Save server snapshot i V2 Tracker og sjekk at pending øker eller oppdateres uten duplikatkaos.',
   },
   {
     title: 'Stats fungerer',
@@ -25,7 +29,7 @@ const qaChecks = [
   },
   {
     title: 'Status-siden svarer',
-    description: 'Status-siden skal hente health, live-status, tracker stats, tracker quality og endpoint probes uten feil.',
+    description: 'Status-siden skal hente health, live-status, tracker snapshot, tracker stats, tracker quality og endpoint probes uten feil.',
   },
   {
     title: 'Mobilvisning fungerer',
@@ -44,10 +48,23 @@ const deployChecks = [
 const apiChecks = [
   '/api/health skal returnere ok: true.',
   '/api/fixtures skal returnere dashboard-data eller fallback-data.',
+  '/api/tracker/snapshot skal returnere rows, source og generatedAt.',
+  'POST /api/tracker/snapshot skal lagre snapshot-rader til tracker-store.',
+  '/api/tracker/history skal vise open og settled trackerhistorikk.',
   '/api/tracker/stats skal returnere summary, marketStats og profitTrend.',
   '/api/tracker/quality skal returnere avgScore, issueCounts og rows.',
   '/api/tracker/export skal returnere tracker-store som JSON.',
   '/api/tracker/export?format=csv skal laste ned CSV.',
+];
+
+const trackerFlowChecks = [
+  'Åpne V2 Tracker og sjekk at Server snapshot har rader.',
+  'Trykk Save server snapshot.',
+  'Sjekk at Pending viser de lagrede radene.',
+  'Åpne Stats og sjekk at Pending Count er oppdatert.',
+  'Åpne Quality og sjekk at radene får quality score.',
+  'Trykk CSV export og bekreft at filen inneholder pending-radene.',
+  'Trykk Reset store når testen er ferdig hvis du vil nullstille historikken.',
 ];
 
 const bugTemplate = [
@@ -91,6 +108,25 @@ export default function QAPage() {
                   <div className="metric-pill-label">Sjekk</div>
                   <div className="metric-pill-value">{check.title}</div>
                   <p className="section-subtitle" style={{ marginTop: 8 }}>{check.description}</p>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          <section className="list-card">
+            <div className="list-card-header">
+              <div>
+                <h2 className="section-title" style={{ marginBottom: 0 }}>Tracker flow</h2>
+                <p className="section-subtitle">Praktisk test av server-snapshot → tracker-store → stats/quality/export.</p>
+              </div>
+              <div className="badge-soft">V2</div>
+            </div>
+
+            <div className="reason-list">
+              {trackerFlowChecks.map((item, index) => (
+                <div key={item} className="reason-card">
+                  <span className="reason-number">{index + 1}</span>
+                  <div className="metric-pill-value">{item}</div>
                 </div>
               ))}
             </div>
