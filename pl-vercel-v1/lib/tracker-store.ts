@@ -1,3 +1,5 @@
+export type TrackerDataQuality = 'green' | 'yellow' | 'red';
+
 export type TrackerSavedPick = {
   fixtureId: string;
   match: string;
@@ -8,6 +10,8 @@ export type TrackerSavedPick = {
   kickoff: string;
   savedAt: string;
   snapshotId: string;
+  dataQuality?: TrackerDataQuality;
+  source?: string;
 };
 
 export type TrackerSettledPick = TrackerSavedPick & {
