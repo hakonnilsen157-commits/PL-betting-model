@@ -27,6 +27,15 @@ const endpoints = [
   ['Export', '/api/tracker/export'],
 ] as const;
 
+const testFlow = [
+  'Oppdater alt',
+  'Save snapshot',
+  'Seed demo',
+  'Auto-settle',
+  'Sjekk Stats/Quality/Insights',
+  'Eksporter CSV/JSON',
+];
+
 function timeNow() {
   return new Date().toLocaleString('no-NO');
 }
@@ -133,7 +142,11 @@ export default function TestLabPage() {
             <h1 className="hero-title">Test lab</h1>
             <p className="hero-subtitle">En praktisk testsentral for V2-flyten: snapshot, demo-data, status, export og API-sjekker.</p>
           </div>
-          <button type="button" className="app-nav-link" onClick={refresh} disabled={busy}>{busy ? 'Tester...' : 'Oppdater alt'}</button>
+          <div className="app-nav-links">
+            <button type="button" className="app-nav-link" onClick={refresh} disabled={busy}>{busy ? 'Tester...' : 'Oppdater alt'}</button>
+            <a href="/quick-test" className="app-nav-link">Quick test</a>
+            <a href="/qa" className="app-nav-link">QA</a>
+          </div>
         </div>
         <div className="summary-grid" style={{ marginTop: 20 }}>
           <div className="summary-card"><div className="summary-label">API probes</div><div className="summary-value">{probes.length ? `${okCount}/${probes.length}` : '–'}</div></div>
@@ -160,6 +173,16 @@ export default function TestLabPage() {
               <button type="button" className="summary-card" disabled={action !== null} onClick={() => run('reset', 'Reset store', () => fetch('/api/tracker/history', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ kind: 'all' }) }))}><div className="summary-label">Reset</div><div className="summary-value" style={{ fontSize: 20 }}>{action === 'reset' ? 'Nullstiller...' : 'Reset store'}</div></button>
             </div>
           </section>
+
+          <section className="list-card">
+            <div className="list-card-header"><div><h2 className="section-title" style={{ marginBottom: 0 }}>Anbefalt testflyt</h2><p className="section-subtitle">Rask sjekkliste når du tester i dag.</p></div><div className="badge-soft">Flow</div></div>
+            <div className="reason-list">
+              {testFlow.map((item, index) => (
+                <div key={item} className="reason-card"><span className="reason-number">{index + 1}</span><div className="metric-pill-value">{item}</div></div>
+              ))}
+            </div>
+          </section>
+
           <section className="list-card">
             <div className="list-card-header"><div><h2 className="section-title" style={{ marginBottom: 0 }}>API probes</h2><p className="section-subtitle">Sentrale API-endepunkter.</p></div><div className="badge-soft">{okCount}/{probes.length || 0}</div></div>
             <div className="metrics-grid" style={{ marginTop: 14 }}>{probes.map((item) => <div key={item.path} className="metric-pill" style={{ textAlign: 'left' }}><div className="metric-pill-label">{item.ok ? 'OK' : 'Feil'} · HTTP {item.status || '–'}</div><div className="metric-pill-value">{item.label}</div><p className="section-subtitle" style={{ marginTop: 8 }}>{item.path}</p><p className="section-subtitle" style={{ marginTop: 4 }}>{item.detail}</p></div>)}</div>
@@ -167,6 +190,7 @@ export default function TestLabPage() {
         </div>
         <aside className="right-column">
           <section className="detail-card"><h2 className="section-title">Exports</h2><div className="app-nav-links" style={{ marginTop: 12 }}><a href="/api/tracker/export?format=csv" className="app-nav-link">CSV</a><a href="/api/tracker/export" className="app-nav-link">JSON</a><a href="/api/tracker/diagnostics" className="app-nav-link">Diagnostics</a></div></section>
+          <section className="detail-card" style={{ marginTop: 16 }}><h2 className="section-title">Nyttige sider</h2><div className="app-nav-links" style={{ marginTop: 12 }}><a href="/tracker-stats" className="app-nav-link">Stats</a><a href="/quality" className="app-nav-link">Quality</a><a href="/insights" className="app-nav-link">Insights</a><a href="/diagnostics" className="app-nav-link">Diagnostics</a><a href="/backtest" className="app-nav-link">Backtest</a></div></section>
           <section className="detail-card" style={{ marginTop: 16 }}><h2 className="section-title">Action log</h2><div className="reason-list" style={{ marginTop: 16 }}>{logs.length === 0 ? <div className="empty-box">Ingen handlinger kjørt ennå.</div> : logs.map((log) => <div key={`${log.at}-${log.title}-${log.detail}`} className="reason-card"><span className="reason-number">•</span><div><div className="metric-pill-value">{log.title}</div><p className="section-subtitle" style={{ marginTop: 4 }}>{log.at} · {log.detail}</p></div></div>)}</div></section>
           <section className="warning-box">Reset store nullstiller trackerhistorikken. Bruk den helst bare når du tester demo-data.</section>
         </aside>
