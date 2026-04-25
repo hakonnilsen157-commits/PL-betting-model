@@ -1,5 +1,15 @@
 const changes = [
   {
+    version: 'V2.17',
+    title: 'Diagnostics i brukerguiden',
+    items: [
+      'Oppdatert Guide med 9-stegs arbeidsflyt der Diagnostics er eget steg.',
+      'Lagt til egen Diagnostics guide som forklarer readiness score, persistent storage, sample size og issues.',
+      'Utvidet anbefalt arbeidsflyt med Diagnostics mellom Insights og Status.',
+      'Lagt inn forklaring av hva Diagnostics betyr i sidepanelet på Guide-siden.',
+    ],
+  },
+  {
     version: 'V2.16',
     title: 'Tracker Diagnostics',
     items: [
