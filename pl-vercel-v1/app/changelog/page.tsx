@@ -1,5 +1,15 @@
 const changes = [
   {
+    version: 'V2.18',
+    title: 'Test lab og raskere V2-testing',
+    items: [
+      'Lagt til /test-lab som samlet testsentral for snapshot, seed demo, auto-settle, reset, API probes og export.',
+      'Koblet Test lab inn i den kompakte menyen slik at den er lett å finne på mobil.',
+      'Oppdatert Guide med Test lab som første steg, 10-stegs arbeidsflyt og egen Test lab guide.',
+      'Oppdatert QA med Test lab flow, deploy-sjekk via /test-lab og test av snapshot/export fra samme side.',
+    ],
+  },
+  {
     version: 'V2.17',
     title: 'Diagnostics i brukerguiden',
     items: [
