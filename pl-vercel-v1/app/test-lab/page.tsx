@@ -4,6 +4,16 @@ import { useEffect, useMemo, useState } from 'react';
 
 type Probe = { label: string; path: string; ok: boolean; status: number; detail: string };
 type Log = { at: string; title: string; detail: string };
+type Summary = {
+  storageMode?: string;
+  openRows?: number;
+  settledRows?: number;
+  readiness?: number;
+  issues?: number;
+  recommendations?: number;
+  profit?: number;
+  roi?: number;
+};
 
 const endpoints = [
   ['Health', '/api/health'],
@@ -21,6 +31,16 @@ function timeNow() {
   return new Date().toLocaleString('no-NO');
 }
 
+function percent(value?: number) {
+  if (typeof value !== 'number' || Number.isNaN(value)) return '–';
+  return `${(value * 100).toFixed(1)}%`;
+}
+
+function units(value?: number) {
+  if (typeof value !== 'number' || Number.isNaN(value)) return '–';
+  return `${value > 0 ? '+' : ''}${value.toFixed(2)}u`;
+}
+
 function detail(json: unknown) {
   if (!json || typeof json !== 'object') return 'Svar mottatt';
   const obj = json as Record<string, unknown>;
@@ -34,6 +54,7 @@ function detail(json: unknown) {
 
 export default function TestLabPage() {
   const [probes, setProbes] = useState<Probe[]>([]);
+  const [summary, setSummary] = useState<Summary | null>(null);
   const [logs, setLogs] = useState<Log[]>([]);
   const [busy, setBusy] = useState(false);
   const [action, setAction] = useState<string | null>(null);
@@ -55,6 +76,29 @@ export default function TestLabPage() {
         }
       }));
       setProbes(next);
+
+      const [storageRes, statsRes, insightsRes, diagnosticsRes] = await Promise.all([
+        fetch('/api/tracker/storage-status', { cache: 'no-store' }),
+        fetch('/api/tracker/stats', { cache: 'no-store' }),
+        fetch('/api/tracker/insights', { cache: 'no-store' }),
+        fetch('/api/tracker/diagnostics', { cache: 'no-store' }),
+      ]);
+      const [storage, stats, insights, diagnostics] = await Promise.all([
+        storageRes.json(),
+        statsRes.json(),
+        insightsRes.json(),
+        diagnosticsRes.json(),
+      ]);
+      setSummary({
+        storageMode: storage.storageMode,
+        openRows: storage.summary?.openRows,
+        settledRows: storage.summary?.settledRows,
+        readiness: diagnostics.readinessScore,
+        issues: diagnostics.issues?.length ?? 0,
+        recommendations: insights.recommendations?.length ?? 0,
+        profit: stats.summary?.profit,
+        roi: stats.summary?.roi,
+      });
     } finally {
       setBusy(false);
     }
@@ -93,9 +137,15 @@ export default function TestLabPage() {
         </div>
         <div className="summary-grid" style={{ marginTop: 20 }}>
           <div className="summary-card"><div className="summary-label">API probes</div><div className="summary-value">{probes.length ? `${okCount}/${probes.length}` : '–'}</div></div>
-          <div className="summary-card"><div className="summary-label">Siste handling</div><div className="summary-value" style={{ fontSize: 20 }}>{logs[0]?.title ?? '–'}</div></div>
-          <div className="summary-card"><div className="summary-label">Status</div><div className="summary-value green">{busy || action ? 'Kjører' : 'Klar'}</div></div>
-          <div className="summary-card"><div className="summary-label">Exports</div><div className="summary-value" style={{ fontSize: 20 }}>CSV/JSON</div></div>
+          <div className="summary-card"><div className="summary-label">Storage</div><div className="summary-value" style={{ fontSize: 20 }}>{summary?.storageMode ?? '–'}</div></div>
+          <div className="summary-card"><div className="summary-label">Readiness</div><div className="summary-value green">{typeof summary?.readiness === 'number' ? `${summary.readiness}%` : '–'}</div></div>
+          <div className="summary-card"><div className="summary-label">Profit / ROI</div><div className="summary-value green" style={{ fontSize: 20 }}>{units(summary?.profit)} · {percent(summary?.roi)}</div></div>
+        </div>
+        <div className="summary-grid" style={{ marginTop: 16 }}>
+          <div className="summary-card"><div className="summary-label">Open rows</div><div className="summary-value">{summary?.openRows ?? '–'}</div></div>
+          <div className="summary-card"><div className="summary-label">Settled rows</div><div className="summary-value">{summary?.settledRows ?? '–'}</div></div>
+          <div className="summary-card"><div className="summary-label">Issues</div><div className="summary-value">{summary?.issues ?? '–'}</div></div>
+          <div className="summary-card"><div className="summary-label">Recommendations</div><div className="summary-value">{summary?.recommendations ?? '–'}</div></div>
         </div>
       </section>
 
