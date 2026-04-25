@@ -1,7 +1,7 @@
 const steps = [
   {
     title: '1. Start med Dashboard',
-    text: 'Bruk dashboardet for å se kampene, beste anbefalinger, EV, confidence og modellens korte forklaring per spill.',
+    text: 'Bruk dashboardet for å se kamper, beste anbefalinger, EV, confidence og modellens korte forklaring per spill.',
   },
   {
     title: '2. Filtrer på marked og EV',
@@ -9,19 +9,36 @@ const steps = [
   },
   {
     title: '3. Sjekk V2 Tracker',
-    text: 'Tracker-siden viser åpne picks, lokal historikk og demo-resultater slik at du kan følge hvordan modellen utvikler seg.',
+    text: 'Tracker-siden viser pending picks, settled historikk, datakvalitet, eksport og settlement queue.',
   },
   {
-    title: '4. Ikke stol blindt på ett tall',
-    text: 'Bruk EV, confidence, oddsgrunnlag og kampanalyse sammen. Lav datakvalitet bør alltid vektes ned.',
+    title: '4. Bruk Stats',
+    text: 'Stats-siden viser ROI, hit rate, market stats, profit trend og gir deg knapper for seed demo, auto-settle, reset og eksport.',
+  },
+  {
+    title: '5. Bruk Quality',
+    text: 'Quality-siden viser hvilke tracker-rader som har svak datakvalitet, manglende felt, lav EV eller lav confidence.',
+  },
+  {
+    title: '6. Sjekk Status ved feil',
+    text: 'Status-siden viser health, API probes, tracker store, quality score og om API-nøkler er satt.',
   },
 ];
 
 const rules = [
   'Spill kun hypotetiske eller små test-stakes mens modellen bygges.',
   'Før logg over anbefalinger, odds og resultat før du vurderer om modellen faktisk har edge.',
-  'Prioriter kamper der modellen har tydelig forklaring, høy EV og solid confidence.',
+  'Prioriter kamper der modellen har tydelig forklaring, høy EV, solid confidence og god datakvalitet.',
   'Unngå å øke innsats etter tap. Modellen skal testes disiplinert, ikke jages.',
+  'Ikke vurder modellen seriøst før den har nok settled picks per marked.',
+];
+
+const workflow = [
+  'Dashboard: finn mulige verdi-cases.',
+  'V2 Tracker: la anbefalinger lagres og følg pending/settled.',
+  'Stats: vurder ROI, hit rate og profittrend.',
+  'Quality: sjekk om trackerhistorikken har svake rader.',
+  'Backtest: vurder hvilke markeder som faktisk fungerer over tid.',
 ];
 
 export default function GuidePage() {
@@ -46,9 +63,9 @@ export default function GuidePage() {
             <div className="list-card-header">
               <div>
                 <h2 className="section-title" style={{ marginBottom: 0 }}>Slik bruker du appen</h2>
-                <p className="section-subtitle">En enkel flyt fra analyse til logging.</p>
+                <p className="section-subtitle">En enkel flyt fra analyse til logging, stats og quality check.</p>
               </div>
-              <div className="badge-soft">4 steg</div>
+              <div className="badge-soft">6 steg</div>
             </div>
 
             <div className="metrics-grid" style={{ marginTop: 14 }}>
@@ -57,6 +74,25 @@ export default function GuidePage() {
                   <div className="metric-pill-label">Steg</div>
                   <div className="metric-pill-value">{step.title}</div>
                   <p className="section-subtitle" style={{ marginTop: 8 }}>{step.text}</p>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          <section className="list-card">
+            <div className="list-card-header">
+              <div>
+                <h2 className="section-title" style={{ marginBottom: 0 }}>Anbefalt arbeidsflyt</h2>
+                <p className="section-subtitle">Hvordan sidene bør brukes sammen.</p>
+              </div>
+              <div className="badge-soft">Workflow</div>
+            </div>
+
+            <div className="reason-list">
+              {workflow.map((item, index) => (
+                <div key={item} className="reason-card">
+                  <span className="reason-number">{index + 1}</span>
+                  <div className="metric-pill-value">{item}</div>
                 </div>
               ))}
             </div>
@@ -96,6 +132,13 @@ export default function GuidePage() {
             <h2 className="section-title">Hva betyr confidence?</h2>
             <p className="section-subtitle">
               Confidence er en praktisk styrkeindikator. Den bør brukes sammen med EV, datakvalitet, markedstype og kampbildet.
+            </p>
+          </section>
+
+          <section className="detail-card" style={{ marginTop: 16 }}>
+            <h2 className="section-title">Hva betyr quality score?</h2>
+            <p className="section-subtitle">
+              Quality score er en intern sjekk av tracker-data. Lav score betyr at raden bør undersøkes før den brukes i backtest eller modellvurdering.
             </p>
           </section>
 
