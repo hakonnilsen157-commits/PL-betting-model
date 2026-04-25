@@ -36,6 +36,22 @@ type TrackerStatsResponse = {
   error?: string;
 };
 
+type InsightsResponse = {
+  ok?: boolean;
+  recommendations?: string[];
+  marketInsights?: Array<{
+    market: string;
+    picks: number;
+    settled: number;
+    profit: number;
+    roi: number;
+    hitRate: number;
+    avgEv: number;
+    avgConfidence: number;
+  }>;
+  error?: string;
+};
+
 const backtestPlan = [
   'Lagre alle anbefalinger før kampstart med timestamp, marked, odds, EV og confidence.',
   'Lagre datakilde og om anbefalingen brukte live odds, delvis live data eller fallback-data.',
@@ -73,6 +89,7 @@ function sampleStatus(picks?: number) {
 
 export default function BacktestPage() {
   const [data, setData] = useState<TrackerStatsResponse | null>(null);
+  const [insights, setInsights] = useState<InsightsResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -81,10 +98,21 @@ export default function BacktestPage() {
     setError(null);
 
     try {
-      const response = await fetch('/api/tracker/stats', { cache: 'no-store' });
-      const json = (await response.json()) as TrackerStatsResponse;
-      if (!json.ok) throw new Error(json.error ?? 'Kunne ikke hente backtest-data');
-      setData(json);
+      const [statsResponse, insightsResponse] = await Promise.all([
+        fetch('/api/tracker/stats', { cache: 'no-store' }),
+        fetch('/api/tracker/insights', { cache: 'no-store' }),
+      ]);
+
+      const [statsJson, insightsJson] = await Promise.all([
+        statsResponse.json(),
+        insightsResponse.json(),
+      ]);
+
+      if (!statsResponse.ok || !statsJson.ok) throw new Error(statsJson.error ?? 'Kunne ikke hente backtest-data');
+      if (!insightsResponse.ok || !insightsJson.ok) throw new Error(insightsJson.error ?? 'Kunne ikke hente insights-data');
+
+      setData(statsJson);
+      setInsights(insightsJson);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Ukjent backtest-feil');
     } finally {
@@ -118,7 +146,7 @@ export default function BacktestPage() {
             <div className="eyebrow">Premier League Betting Model</div>
             <h1 className="hero-title">Backtest</h1>
             <p className="hero-subtitle">
-              Backtest-siden leser nå tracker stats API-et og viser faktisk historikk når picks er lagret eller seedet inn.
+              Backtest-siden leser tracker stats og tracker insights for å vise faktisk historikk, markedsinnsikt og neste tiltak.
             </p>
           </div>
           <button type="button" onClick={loadStats} className="app-nav-link" disabled={loading}>
@@ -145,15 +173,36 @@ export default function BacktestPage() {
             <p className="section-subtitle" style={{ marginTop: 8 }}>{sampleStatus(summary?.settledCount)}</p>
           </div>
           <div className="summary-card">
-            <div className="summary-label">Storage</div>
-            <div className="summary-value" style={{ fontSize: 20 }}>{data?.storageMode ?? '–'}</div>
-            <p className="section-subtitle" style={{ marginTop: 8 }}>Sist oppdatert {formatDate(data?.updatedAt)}</p>
+            <div className="summary-label">Insights</div>
+            <div className="summary-value">{insights?.recommendations?.length ?? 0}</div>
+            <p className="section-subtitle" style={{ marginTop: 8 }}>Anbefalte neste tiltak.</p>
           </div>
         </div>
       </section>
 
       <section className="main-grid">
         <div className="left-column">
+          <section className="list-card">
+            <div className="list-card-header">
+              <div>
+                <h2 className="section-title" style={{ marginBottom: 0 }}>Insights fra historikken</h2>
+                <p className="section-subtitle">Samme anbefalinger som Insights-siden, vist direkte i backtest.</p>
+              </div>
+              <div className="badge-soft">Insights</div>
+            </div>
+
+            <div className="reason-list">
+              {(insights?.recommendations ?? []).length === 0 ? (
+                <div className="empty-box">Ingen insights ennå.</div>
+              ) : insights?.recommendations?.map((item, index) => (
+                <div key={item} className="reason-card">
+                  <span className="reason-number">{index + 1}</span>
+                  <div className="metric-pill-value">{item}</div>
+                </div>
+              ))}
+            </div>
+          </section>
+
           <section className="list-card">
             <div className="list-card-header">
               <div>
@@ -213,6 +262,13 @@ export default function BacktestPage() {
             <h2 className="section-title">Datakvalitet</h2>
             <p className="section-subtitle">
               Grønn: {qualityCounts.green ?? 0} · Gul: {qualityCounts.yellow ?? 0} · Rød: {qualityCounts.red ?? 0} · Total: {totalQuality}
+            </p>
+          </section>
+
+          <section className="detail-card" style={{ marginTop: 16 }}>
+            <h2 className="section-title">Storage</h2>
+            <p className="section-subtitle">
+              {data?.storageMode ?? '–'} · Sist oppdatert {formatDate(data?.updatedAt)}
             </p>
           </section>
 
