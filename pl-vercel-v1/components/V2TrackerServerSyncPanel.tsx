@@ -2,22 +2,6 @@
 
 import { useEffect, useMemo, useState } from 'react';
 
-type Recommendation = {
-  fixtureId: string;
-  match: string;
-  kickoff: string;
-  market: string;
-  bookmakerOdds: number;
-  expectedValue: number;
-  confidence: number;
-};
-
-type FixturesResponse = {
-  recommendations?: Recommendation[];
-  generatedAt?: string;
-  source?: string;
-};
-
 type TrackerOpenRow = {
   fixtureId: string;
   match: string;
@@ -50,27 +34,21 @@ type TrackerHistoryResponse = {
   error?: string;
 };
 
-type ActionResponse = TrackerHistoryResponse & {
+type SnapshotResponse = {
+  ok?: boolean;
+  rows?: TrackerOpenRow[];
   inserted?: number;
+  source?: string;
+  generatedAt?: string;
+  error?: string;
+};
+
+type ActionResponse = TrackerHistoryResponse & SnapshotResponse & {
   message?: string;
   settled?: TrackerSettledRow[];
   pending?: unknown[];
   unsupported?: unknown[];
 };
-
-const marketLabels: Record<string, string> = {
-  home: 'Hjemmeseier',
-  draw: 'Uavgjort',
-  away: 'Borteseier',
-  over2_5: 'Over 2.5',
-  under2_5: 'Under 2.5',
-  btts_yes: 'Begge lag scorer',
-  btts_no: 'Begge lag scorer ikke',
-};
-
-function marketLabel(market: string) {
-  return marketLabels[market] ?? market;
-}
 
 function pct(value?: number) {
   if (typeof value !== 'number' || Number.isNaN(value)) return '–';
@@ -96,12 +74,6 @@ function formatDate(value?: string) {
   }
 }
 
-function dataQualityFromSource(source?: string): TrackerOpenRow['dataQuality'] {
-  if (source === 'live') return 'green';
-  if (source === 'partial-live') return 'yellow';
-  return 'red';
-}
-
 function qualityLabel(value?: string) {
   if (value === 'green') return 'Grønn';
   if (value === 'yellow') return 'Gul';
@@ -109,26 +81,8 @@ function qualityLabel(value?: string) {
   return 'Ukjent';
 }
 
-function buildRowsFromRecommendations(fixtures: FixturesResponse | null): TrackerOpenRow[] {
-  const source = fixtures?.source ?? 'unknown';
-  const quality = dataQualityFromSource(source);
-  return (fixtures?.recommendations ?? []).slice(0, 8).map((rec) => ({
-    fixtureId: rec.fixtureId,
-    match: rec.match,
-    market: marketLabel(rec.market),
-    odds: rec.bookmakerOdds,
-    confidence: rec.confidence,
-    expectedValue: rec.expectedValue,
-    kickoff: rec.kickoff,
-    savedAt: new Date().toISOString(),
-    snapshotId: fixtures?.generatedAt ?? new Date().toISOString(),
-    dataQuality: quality,
-    source,
-  }));
-}
-
 export default function V2TrackerServerSyncPanel() {
-  const [fixtures, setFixtures] = useState<FixturesResponse | null>(null);
+  const [snapshot, setSnapshot] = useState<SnapshotResponse | null>(null);
   const [history, setHistory] = useState<TrackerHistoryResponse | null>(null);
   const [status, setStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -142,20 +96,20 @@ export default function V2TrackerServerSyncPanel() {
     setError(null);
 
     try {
-      const [fixturesResponse, historyResponse] = await Promise.all([
-        fetch('/api/fixtures', { cache: 'no-store' }),
+      const [snapshotResponse, historyResponse] = await Promise.all([
+        fetch('/api/tracker/snapshot', { cache: 'no-store' }),
         fetch('/api/tracker/history', { cache: 'no-store' }),
       ]);
 
-      const [fixturesJson, historyJson] = await Promise.all([
-        fixturesResponse.json(),
+      const [snapshotJson, historyJson] = await Promise.all([
+        snapshotResponse.json(),
         historyResponse.json(),
       ]);
 
-      if (!fixturesResponse.ok) throw new Error(fixturesJson?.error ?? 'Kunne ikke hente fixtures');
+      if (!snapshotResponse.ok || !snapshotJson.ok) throw new Error(snapshotJson?.error ?? 'Kunne ikke hente snapshot');
       if (!historyResponse.ok || !historyJson.ok) throw new Error(historyJson?.error ?? 'Kunne ikke hente trackerhistorikk');
 
-      setFixtures(fixturesJson);
+      setSnapshot(snapshotJson);
       setHistory(historyJson);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Ukjent tracker-feil');
@@ -186,7 +140,7 @@ export default function V2TrackerServerSyncPanel() {
     loadAll();
   }, []);
 
-  const snapshotRows = useMemo(() => buildRowsFromRecommendations(fixtures), [fixtures]);
+  const snapshotRows = snapshot?.rows ?? [];
   const openRows = history?.open ?? [];
   const settledRows = history?.settled ?? [];
 
@@ -222,10 +176,10 @@ export default function V2TrackerServerSyncPanel() {
           <div className="eyebrow">Premier League Betting Model</div>
           <h1 className="hero-title">V2 Tracker</h1>
           <p className="hero-subtitle">
-            Server-synket tracker som skriver anbefalinger til /api/tracker/history og leser pending/settled historikk fra tracker-store.
+            Server-synket tracker som bruker /api/tracker/snapshot for anbefalinger og /api/tracker/history for pending/settled historikk.
           </p>
         </div>
-        <div className="updated-at">Storage: {history?.storageMode ?? 'laster...'} · Source: {fixtures?.source ?? '–'}</div>
+        <div className="updated-at">Storage: {history?.storageMode ?? 'laster...'} · Source: {snapshot?.source ?? '–'}</div>
       </div>
 
       {error ? <div className="warning-box">{error}</div> : null}
@@ -241,7 +195,7 @@ export default function V2TrackerServerSyncPanel() {
       <div className="summary-grid" style={{ marginTop: 16 }}>
         <div className="summary-card"><div className="summary-label">ROI</div><div className="summary-value green">{pct(summary.roi)}</div></div>
         <div className="summary-card"><div className="summary-label">Hit rate</div><div className="summary-value">{pct(summary.hitRate)}</div></div>
-        <div className="summary-card"><div className="summary-label">Datakvalitet snapshot</div><div className="summary-value" style={{ fontSize: 20 }}>{qualityLabel(dataQualityFromSource(fixtures?.source))}</div></div>
+        <div className="summary-card"><div className="summary-label">Snapshot kvalitet</div><div className="summary-value" style={{ fontSize: 20 }}>{qualityLabel(snapshotRows[0]?.dataQuality)}</div></div>
         <div className="summary-card"><div className="summary-label">Updated</div><div className="summary-value" style={{ fontSize: 18 }}>{formatDate(history?.updatedAt)}</div></div>
       </div>
 
@@ -268,16 +222,16 @@ export default function V2TrackerServerSyncPanel() {
         </div>
 
         <div className="app-nav-links" style={{ justifyContent: 'flex-start', marginTop: 16 }}>
-          <button type="button" className="app-nav-link" disabled={loading || actionLoading === 'save' || snapshotRows.length === 0} onClick={() => runAction(
+          <button type="button" className="app-nav-link" disabled={loading || actionLoading === 'save'} onClick={() => runAction(
             'save',
-            () => fetch('/api/tracker/history', {
+            () => fetch('/api/tracker/snapshot', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ open: snapshotRows }),
+              body: JSON.stringify({ limit: 8 }),
             }),
-            (json) => `Lagret snapshot til tracker-store. Pending: ${json.open?.length ?? 0}`,
+            (json) => `Server-snapshot lagret. Inserted: ${json.inserted ?? 0} · Pending: ${json.open?.length ?? 0}`,
           )}>
-            {actionLoading === 'save' ? 'Lagrer...' : 'Save snapshot'}
+            {actionLoading === 'save' ? 'Lagrer...' : 'Save server snapshot'}
           </button>
           <button type="button" className="app-nav-link" disabled={actionLoading === 'auto'} onClick={() => runAction(
             'auto',
@@ -311,7 +265,7 @@ export default function V2TrackerServerSyncPanel() {
       </div>
 
       <div className="info-panel" style={{ marginTop: 16 }}>
-        <h3>Snapshot fra dashboard</h3>
+        <h3>Server snapshot</h3>
         <div className="metrics-grid" style={{ marginTop: 14 }}>
           {snapshotRows.length === 0 ? <div className="empty-box">Ingen anbefalinger i snapshot.</div> : snapshotRows.map((row) => (
             <div key={`${row.fixtureId}-${row.market}-snapshot`} className="metric-pill" style={{ textAlign: 'left' }}>
