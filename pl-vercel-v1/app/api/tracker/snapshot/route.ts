@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getLiveDashboard } from '@/lib/live-data';
-import { mergePersistentOpenRows, getTrackerStorageMode } from '@/lib/tracker-persistent-store';
+import { getPersistentTrackerStore, mergePersistentOpenRows, getTrackerStorageMode } from '@/lib/tracker-persistent-store';
 import { TrackerDataQuality, TrackerSavedPick } from '@/lib/tracker-store';
 
 const marketLabels: Record<string, string> = {
@@ -21,6 +21,10 @@ function dataQualityFromSource(source?: string): TrackerDataQuality {
   if (source === 'live') return 'green';
   if (source === 'partial-live') return 'yellow';
   return 'red';
+}
+
+function rowKey(row: { fixtureId: string; market: string }) {
+  return `${row.fixtureId}__${row.market}`;
 }
 
 async function buildSnapshotRows(limit = 8): Promise<{ rows: TrackerSavedPick[]; source?: string; generatedAt?: string }> {
@@ -54,6 +58,10 @@ export async function GET(request: Request) {
   return NextResponse.json({
     ok: true,
     storageMode: getTrackerStorageMode(),
+    rowCount: snapshot.rows.length,
+    message: snapshot.rows.length > 0
+      ? `Snapshot has ${snapshot.rows.length} recommendation rows.`
+      : 'Snapshot has 0 recommendation rows. The model did not find positive EV picks right now.',
     ...snapshot,
   });
 }
@@ -63,14 +71,28 @@ export async function POST(request: Request) {
     const body = await request.json().catch(() => ({}));
     const limit = Number(body?.limit ?? 8);
     const snapshot = await buildSnapshotRows(Number.isFinite(limit) ? limit : 8);
+    const before = await getPersistentTrackerStore();
+    const beforeKeys = new Set(before.open.map(rowKey));
+    const snapshotKeys = snapshot.rows.map(rowKey);
+    const addedRows = snapshotKeys.filter((key) => !beforeKeys.has(key)).length;
+    const updatedRows = snapshot.rows.length - addedRows;
     const store = await mergePersistentOpenRows(snapshot.rows);
 
     return NextResponse.json({
       ok: true,
       inserted: snapshot.rows.length,
+      addedRows,
+      updatedRows,
+      beforeOpenRows: before.open.length,
+      afterOpenRows: store.open.length,
       storageMode: getTrackerStorageMode(),
       source: snapshot.source,
       generatedAt: snapshot.generatedAt,
+      message: snapshot.rows.length === 0
+        ? 'No rows saved because the model found 0 positive EV recommendations right now.'
+        : addedRows === 0
+          ? `Saved snapshot updated ${updatedRows} existing open rows. Open row count did not increase because these picks were already in tracker.`
+          : `Saved snapshot added ${addedRows} new open rows and updated ${updatedRows} existing rows.`,
       ...store,
     });
   } catch (error) {
