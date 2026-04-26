@@ -1,5 +1,9 @@
 const qaChecks = [
   {
+    title: 'Release notes fungerer',
+    description: 'Release notes skal vise V2.20-høydepunkter, testrekkefølge og manuelle GitHub-oppgaver.',
+  },
+  {
     title: 'Deploy checklist fungerer',
     description: 'Deploy checklist skal vise steg for test etter Vercel deploy, feilsøking og snarveier til testsider.',
   },
@@ -68,6 +72,7 @@ const qaChecks = [
 const deployChecks = [
   'Sjekk at nyeste deployment i Vercel står som Ready.',
   'Kontroller at commit-hashen i Vercel matcher siste commit i GitHub.',
+  'Åpne Release notes for kort oversikt over siste endringer.',
   'Åpne Deploy checklist etter deploy.',
   'Åpne Upstash setup hvis du skal teste persistent historikk.',
   'Åpne Persistent test etter Upstash-oppsett og redeploy.',
@@ -93,6 +98,13 @@ const apiChecks = [
   '/api/tracker/export?format=csv skal laste ned CSV.',
 ];
 
+const releaseFlowChecks = [
+  'Åpne /release-notes.',
+  'Sjekk at V2.20-høydepunkter vises.',
+  'Sjekk at testrekkefølgen peker videre til Deploy checklist, Quick test, Test lab, Upstash setup og Persistent test.',
+  'Sjekk at issue #2 og issue #3 forklares som manuelle oppgaver.',
+];
+
 const deployFlowChecks = [
   'Åpne /deploy-checklist.',
   'Sjekk at siden forklarer deploy-test og feilsøking.',
@@ -100,6 +112,12 @@ const deployFlowChecks = [
   'Klikk videre til Test lab.',
   'Bruk Status eller Diagnostics hvis noe feiler.',
   'Oppdater GitHub issue #2 etter manuell test.',
+];
+
+const issueFlowChecks = [
+  'Issue #2 brukes til V2.20 deploy-testen.',
+  'Issue #3 brukes til V2.21 Upstash-oppsett i Vercel.',
+  'Issue #3 skal ikke lukkes før storageMode er upstash-redis og persistent test er bestått.',
 ];
 
 const upstashFlowChecks = [
@@ -193,6 +211,44 @@ export default function QAPage() {
                   <div className="metric-pill-label">Sjekk</div>
                   <div className="metric-pill-value">{check.title}</div>
                   <p className="section-subtitle" style={{ marginTop: 8 }}>{check.description}</p>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          <section className="list-card">
+            <div className="list-card-header">
+              <div>
+                <h2 className="section-title" style={{ marginBottom: 0 }}>Release flow</h2>
+                <p className="section-subtitle">Kort startpunkt for V2.20-testen.</p>
+              </div>
+              <div className="badge-soft">Release</div>
+            </div>
+
+            <div className="reason-list">
+              {releaseFlowChecks.map((item, index) => (
+                <div key={item} className="reason-card">
+                  <span className="reason-number">{index + 1}</span>
+                  <div className="metric-pill-value">{item}</div>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          <section className="list-card">
+            <div className="list-card-header">
+              <div>
+                <h2 className="section-title" style={{ marginBottom: 0 }}>GitHub issue flow</h2>
+                <p className="section-subtitle">Hvordan issue #2 og #3 bør brukes videre.</p>
+              </div>
+              <div className="badge-soft">Issues</div>
+            </div>
+
+            <div className="reason-list">
+              {issueFlowChecks.map((item, index) => (
+                <div key={item} className="reason-card">
+                  <span className="reason-number">{index + 1}</span>
+                  <div className="metric-pill-value">{item}</div>
                 </div>
               ))}
             </div>
