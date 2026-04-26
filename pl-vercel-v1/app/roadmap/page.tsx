@@ -14,6 +14,8 @@ const phases = [
     items: [
       'Release notes gir kortversjonen av siste versjon og testrekkefølge',
       'Deploy checklist, Quick test og GitHub issue #2 gjør det enklere å teste V2 etter hver Vercel deploy',
+      'Quick test er oppdatert til 10-stegs testrekkefølge med Release notes først',
+      'Deploy checklist er oppdatert til 9-stegs deploy-test med egen GitHub issues-seksjon',
       'Test lab samler snapshot, seed demo, auto-settle, reset, API probes, tracker summary og export på én side',
       'V2 Tracker bruker server snapshot API og tracker-store i stedet for lokal bygging i klienten',
       'Stats-siden viser ROI, hit rate, market stats og profittrend fra API',
@@ -34,8 +36,8 @@ const phases = [
       'Diagnostics sjekker om persistent storage er aktivert før seriøs modellvurdering',
       'Upstash setup forklarer nøyaktig hvilke Vercel environment variables som må legges inn',
       'Persistent test beskriver hvordan trackerhistorikken testes før og etter redeploy',
-      'GitHub issue #3 er opprettet som manuell V2.21-oppgave for Upstash Redis i Vercel',
-      'Deploy checklist og QA beskriver hvordan historikk bør testes etter redeploy',
+      'GitHub issue #3 er opprettet som manuell V2.21/V2.22-oppgave for Upstash Redis i Vercel',
+      'Release notes, Deploy checklist, Quick test og QA peker nå tydelig til issue #2 og issue #3',
       'Setup, Guide, QA og Database plan dokumenterer server-memory → Upstash → Postgres veien',
       'Neste manuelle steg er å fullføre issue #3, legge inn Upstash Redis-variablene i Vercel og kjøre Persistent test',
     ],
@@ -78,7 +80,7 @@ export default function RoadmapPage() {
         <div className="summary-grid" style={{ marginTop: 20 }}>
           <div className="summary-card">
             <div className="summary-label">Nåværende status</div>
-            <div className="summary-value">V2.21</div>
+            <div className="summary-value">V2.22</div>
           </div>
           <div className="summary-card">
             <div className="summary-label">Deploy</div>
