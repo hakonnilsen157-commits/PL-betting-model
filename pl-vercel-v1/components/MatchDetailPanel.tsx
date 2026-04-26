@@ -82,6 +82,11 @@ function pct(v?: number) {
   return `${(v * 100).toFixed(1)}%`;
 }
 
+function num(v?: number, digits = 2) {
+  if (typeof v !== 'number' || Number.isNaN(v)) return '–';
+  return v.toFixed(digits);
+}
+
 function formatDate(date: string) {
   try {
     return new Date(date).toLocaleString('no-NO', {
@@ -162,6 +167,56 @@ function computeTeamStrength(ctx?: TeamContext, side?: 'home' | 'away') {
   return Math.round(pointsBase * 0.35 + formBase * 0.3 + goalDiff * 0.2 + sideBase * 0.15);
 }
 
+function pointsPerGame(ctx?: TeamContext) {
+  if (!ctx?.played || typeof ctx.points !== 'number') return undefined;
+  return ctx.points / ctx.played;
+}
+
+function sidePointsPerGame(ctx: TeamContext | undefined, side: 'home' | 'away') {
+  if (!ctx) return undefined;
+  if (side === 'home') {
+    if (!ctx.homePlayed) return undefined;
+    return ((ctx.homeWins ?? 0) * 3 + (ctx.homeDraws ?? 0)) / ctx.homePlayed;
+  }
+  if (!ctx.awayPlayed) return undefined;
+  return ((ctx.awayWins ?? 0) * 3 + (ctx.awayDraws ?? 0)) / ctx.awayPlayed;
+}
+
+function goalsPerGame(ctx?: TeamContext) {
+  if (!ctx?.played || typeof ctx.goalsFor !== 'number') return undefined;
+  return ctx.goalsFor / ctx.played;
+}
+
+function goalsAgainstPerGame(ctx?: TeamContext) {
+  if (!ctx?.played || typeof ctx.goalsAgainst !== 'number') return undefined;
+  return ctx.goalsAgainst / ctx.played;
+}
+
+function goalDiffPerGame(ctx?: TeamContext) {
+  const gf = goalsPerGame(ctx);
+  const ga = goalsAgainstPerGame(ctx);
+  if (gf === undefined || ga === undefined) return undefined;
+  return gf - ga;
+}
+
+function classifyAttack(ctx?: TeamContext) {
+  const gpg = goalsPerGame(ctx);
+  if (gpg === undefined) return 'Ukjent angrepsnivå';
+  if (gpg >= 2) return 'Høy produksjon';
+  if (gpg >= 1.45) return 'Solid produksjon';
+  if (gpg >= 1.05) return 'Moderat produksjon';
+  return 'Lav produksjon';
+}
+
+function classifyDefence(ctx?: TeamContext) {
+  const gapg = goalsAgainstPerGame(ctx);
+  if (gapg === undefined) return 'Ukjent defensivt nivå';
+  if (gapg <= 0.9) return 'Sterk defensiv';
+  if (gapg <= 1.25) return 'Solid defensiv';
+  if (gapg <= 1.65) return 'Sårbar defensiv';
+  return 'Høy defensiv risiko';
+}
+
 function matchupHeadline(homeStrength: number, awayStrength: number, fixture: FixtureCard) {
   const diff = homeStrength - awayStrength;
   if (diff >= 10) return `${fixture.homeTeam} har et tydeligere grunnsignal før pris vurderes.`;
@@ -197,6 +252,105 @@ function buildPreviewText(fixture: FixtureCard, rec?: Recommendation, source?: s
   if (source === 'partial-live') parts.push(`Lagdataene er live, men oddsdelen er midlertidig erstattet med modellodds fordi bookmaker-feeden ikke er tilgjengelig akkurat nå.`);
   if (parts.length === 0) return `Modellen har foreløpig ikke nok signalstyrke til å lage en tydelig preview for denne kampen.`;
   return parts.join(' ');
+}
+
+function buildDeepTeamRead(fixture: FixtureCard, rec?: Recommendation) {
+  const home = fixture.homeContext;
+  const away = fixture.awayContext;
+  const homePpg = pointsPerGame(home);
+  const awayPpg = pointsPerGame(away);
+  const homeSidePpg = sidePointsPerGame(home, 'home');
+  const awaySidePpg = sidePointsPerGame(away, 'away');
+  const homeGd = goalDiffPerGame(home);
+  const awayGd = goalDiffPerGame(away);
+  const lines: string[] = [];
+
+  if (homePpg !== undefined && awayPpg !== undefined) {
+    const gap = homePpg - awayPpg;
+    if (gap > 0.35) lines.push(`${fixture.homeTeam} har klart bedre poengsnitt totalt (${num(homePpg)} mot ${num(awayPpg)}). Det gir hjemmelaget et sterkere grunnsignal før odds vurderes.`);
+    else if (gap < -0.35) lines.push(`${fixture.awayTeam} har klart bedre poengsnitt totalt (${num(awayPpg)} mot ${num(homePpg)}). Det gjør bortelaget mer interessant enn en ren hjemmebanetolkning skulle tilsi.`);
+    else lines.push(`Poengsnittet er ganske jevnt (${num(homePpg)} mot ${num(awayPpg)}), så modellen må lene seg mer på pris, form og kampstil.`);
+  }
+
+  if (homeSidePpg !== undefined && awaySidePpg !== undefined) {
+    lines.push(`Hjemme/borte-splitt: ${fixture.homeTeam} tar ${num(homeSidePpg)} poeng per hjemmekamp, mens ${fixture.awayTeam} tar ${num(awaySidePpg)} poeng per bortekamp.`);
+  }
+
+  if (homeGd !== undefined && awayGd !== undefined) {
+    const gap = homeGd - awayGd;
+    if (gap > 0.45) lines.push(`Målforskjell per kamp peker tydelig mot ${fixture.homeTeam}. Dette støtter et hjemmelean eller forsiktighet med bortesiden.`);
+    else if (gap < -0.45) lines.push(`Målforskjell per kamp peker tydelig mot ${fixture.awayTeam}. Dette kan forklare hvorfor modellen ikke blindt kjøper hjemmefordelen.`);
+    else lines.push(`Målprofilen er ikke ekstremt ulik. Det øker betydningen av oddspris og kampmarked.`);
+  }
+
+  if (rec) lines.push(`Markedssignalet som faktisk løfter caset er ${formatMarket(rec.market)} med ${pct(rec.expectedValue)} EV og ${pct(rec.edge)} edge.`);
+
+  return lines;
+}
+
+function buildTacticalRead(fixture: FixtureCard, rec?: Recommendation) {
+  const home = fixture.homeContext;
+  const away = fixture.awayContext;
+  const totalGoalsProfile = (goalsPerGame(home) ?? 1.3) + (goalsPerGame(away) ?? 1.3);
+  const totalConcedeProfile = (goalsAgainstPerGame(home) ?? 1.3) + (goalsAgainstPerGame(away) ?? 1.3);
+  const lines: string[] = [];
+
+  if (totalGoalsProfile >= 3.4 || totalConcedeProfile >= 3.1) {
+    lines.push('Kampbildet har tegn til høyere målpotensial fordi lagenes scorede og/eller innslupne mål samlet peker oppover. Det støtter over/BTTS-vurderinger, men må fortsatt kontrolleres mot odds.');
+  } else if (totalGoalsProfile <= 2.3 && totalConcedeProfile <= 2.4) {
+    lines.push('Kampbildet ser i utgangspunktet strammere ut. Det gjør under-markeder mer interessante hvis prisen er god nok.');
+  } else {
+    lines.push('Målbildet er moderat. Modellen bør derfor ikke overdrive totals-markeder uten klar prisfordel.');
+  }
+
+  if (rec?.market === 'home' || rec?.market === 'away') {
+    lines.push('1X2-caset er mest sårbart for tidlig mål imot, rødt kort eller uventet laguttak. Derfor bør confidence justeres ned når spillerdata mangler.');
+  }
+
+  if (rec?.market === 'over2_5' || rec?.market === 'btts_yes') {
+    lines.push('Målcaset blir sterkere dersom begge lag stiller med normal offensiv struktur. Manglende spiss/skapende midtbane bør redusere confidence.');
+  }
+
+  if (rec?.market === 'under2_5' || rec?.market === 'btts_no') {
+    lines.push('Under/BTTS-no blir mer attraktivt når ett eller begge lag har lav produksjon, men caset svekkes raskt hvis forsvarsfravær eller rotering ikke er fanget opp.');
+  }
+
+  return lines;
+}
+
+function buildPlayerAvailabilityRead() {
+  return [
+    'Spillerdata er ikke koblet inn i live-modellen ennå. Det betyr at skader, suspensjoner, hvile, keeperbytte og forventede lagoppstillinger ikke påvirker sannsynligheten direkte.',
+    'Dette skal behandles som en datarisiko. Inntil spillerdata er live, bør modellen være mer forsiktig med høy confidence, spesielt i kamper der én nøkkelspiller kan endre kampbildet mye.',
+    'Neste forbedring bør være å hente expected/confirmed lineups, injuries og suspensions fra en datakilde og oversette dette til en player availability risk score.',
+  ];
+}
+
+function buildModelSignalCards(fixture: FixtureCard, rec?: Recommendation) {
+  const home = fixture.homeContext;
+  const away = fixture.awayContext;
+  return [
+    {
+      title: 'Team edge',
+      value: `${computeTeamStrength(home, 'home')} - ${computeTeamStrength(away, 'away')}`,
+      text: 'Kombinerer tabell, form, målforskjell og hjemme/borte-splitt til et raskt styrkebilde.',
+    },
+    {
+      title: 'Attack/defence',
+      value: `${classifyAttack(home)} / ${classifyDefence(away)}`,
+      text: `${fixture.homeTeam} sin angrepsprofil leses mot ${fixture.awayTeam} sin defensive profil.`,
+    },
+    {
+      title: 'Player risk',
+      value: 'Ukjent',
+      text: 'Spillerfravær og lagoppstilling er ikke live ennå, så dette er en eksplisitt risikofaktor.',
+    },
+    {
+      title: 'Market value',
+      value: rec ? pct(rec.expectedValue) : '–',
+      text: rec ? `Modellen ser best verdi i ${formatMarket(rec.market)} akkurat nå.` : 'Ingen kvalifisert verdi i denne kampen akkurat nå.',
+    },
+  ];
 }
 
 function buildWhyThisPick(fixture: FixtureCard, rec?: Recommendation) {
@@ -263,6 +417,10 @@ export default function MatchDetailPanel({ fixture, recommendations, source }: {
   const homeAngles = buildTeamAngles(fixture.homeContext, 'home');
   const awayAngles = buildTeamAngles(fixture.awayContext, 'away');
   const preview = buildPreviewText(fixture, topRecommendation, source);
+  const deepTeamRead = buildDeepTeamRead(fixture, topRecommendation);
+  const tacticalRead = buildTacticalRead(fixture, topRecommendation);
+  const playerRead = buildPlayerAvailabilityRead();
+  const modelSignalCards = buildModelSignalCards(fixture, topRecommendation);
   const oddsMeta = oddsSourceMeta(fixture.latestOdds?.bookmaker);
   const homeStrength = computeTeamStrength(fixture.homeContext, 'home');
   const awayStrength = computeTeamStrength(fixture.awayContext, 'away');
@@ -285,7 +443,7 @@ export default function MatchDetailPanel({ fixture, recommendations, source }: {
         <div className="stat-box"><div className="stat-box-label">Confidence</div><div className="stat-box-value">{topRecommendation ? `${topRecommendation.confidence.toFixed(0)}/100` : '–'}</div></div>
       </div>
 
-      <div className="info-panel"><h3>Status på datagrunnlag</h3><p><strong>Lagdata:</strong> live tabell og form. <strong>Odds:</strong> {oddsMeta.usingModelOdds ? 'modellbasert fallback fordi bookmaker-feed er utilgjengelig akkurat nå.' : 'live bookmaker-odds.'}</p></div>
+      <div className="info-panel"><h3>Status på datagrunnlag</h3><p><strong>Lagdata:</strong> live tabell og form. <strong>Odds:</strong> {oddsMeta.usingModelOdds ? 'modellbasert fallback fordi bookmaker-feed er utilgjengelig akkurat nå.' : 'live bookmaker-odds.'} <strong>Spillerdata:</strong> ikke koblet inn ennå, derfor vises spillerseksjonen som eksplisitt risiko.</p></div>
 
       <div className="info-panel">
         <h3>Matchup verdict</h3>
@@ -295,6 +453,42 @@ export default function MatchDetailPanel({ fixture, recommendations, source }: {
           <div className="metric-pill"><div className="metric-pill-label">Momentum</div><div className="metric-pill-value">{fixture.homeTeam}: {homeForm}/15 · {fixture.awayTeam}: {awayForm}/15</div></div>
           <div className="metric-pill"><div className="metric-pill-label">Sesongmål</div><div className="metric-pill-value">{fixture.homeTeam}: {homeAttack} · {fixture.awayTeam}: {awayAttack}</div></div>
           <div className="metric-pill"><div className="metric-pill-label">Modellens lean</div><div className="metric-pill-value">{formatMarket(topRecommendation?.market)}</div></div>
+        </div>
+      </div>
+
+      <div className="info-panel">
+        <h3>Dyp analyse</h3>
+        <p className="section-subtitle">Mer forklarende kampanalyse basert på live tabell, form, hjemme/borte-splitt, målprofil og markedsverdi.</p>
+        <div className="metrics-grid" style={{ marginTop: 14 }}>
+          {modelSignalCards.map((card) => (
+            <div key={card.title} className="metric-pill" style={{ textAlign: 'left' }}>
+              <div className="metric-pill-label">{card.title}</div>
+              <div className="metric-pill-value">{card.value}</div>
+              <p className="section-subtitle" style={{ marginTop: 8 }}>{card.text}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="two-col-grid">
+        <div className="info-panel">
+          <h3>Laganalyse</h3>
+          <div className="reason-list">
+            {deepTeamRead.map((line, idx) => (<div key={idx} className="reason-card"><div className="reason-number">{idx + 1}</div><div>{line}</div></div>))}
+          </div>
+        </div>
+        <div className="info-panel">
+          <h3>Taktisk kampbilde</h3>
+          <div className="reason-list">
+            {tacticalRead.map((line, idx) => (<div key={idx} className="reason-card"><div className="reason-number">{idx + 1}</div><div>{line}</div></div>))}
+          </div>
+        </div>
+      </div>
+
+      <div className="info-panel">
+        <h3>Spilleranalyse / availability risk</h3>
+        <div className="reason-list">
+          {playerRead.map((line, idx) => (<div key={idx} className="reason-card"><div className="reason-number">{idx + 1}</div><div>{line}</div></div>))}
         </div>
       </div>
 
@@ -331,7 +525,7 @@ export default function MatchDetailPanel({ fixture, recommendations, source }: {
 
       <div className="info-panel"><h3>Alternative spill i kampen</h3>{recommendations.length === 0 ? (<div className="empty-box">Ingen kvalifiserte spill i denne kampen akkurat nå.</div>) : (recommendations.map((rec) => (<div key={`${rec.fixtureId}-${rec.market}`} className="alt-card"><div className="alt-topline"><div><h4 className="alt-title">{formatMarket(rec.market)}</h4><div className="alt-note">{rec.note}</div></div><div className="ev-pill">EV {pct(rec.expectedValue)}</div></div><div className="metrics-grid" style={{ marginTop: 16 }}><div className="metric-pill"><div className="metric-pill-label">Modellsannsynlighet</div><div className="metric-pill-value">{pct(rec.modelProbability)}</div></div><div className="metric-pill"><div className="metric-pill-label">Markedssannsynlighet</div><div className="metric-pill-value">{pct(rec.impliedProbability)}</div></div><div className="metric-pill"><div className="metric-pill-label">Fair odds</div><div className="metric-pill-value">{rec.fairOdds}</div></div><div className="metric-pill"><div className="metric-pill-label">Oddsgrunnlag</div><div className="metric-pill-value">{oddsMeta.usingModelOdds ? 'Modellodds' : rec.bookmakerOdds}</div></div></div></div>)))}</div>
 
-      <div className="warning-box"><strong>Neste steg:</strong> Nå har vi ekte tabell- og formkontekst inne. Neste naturlige steg er å koble på mer detaljert skadebilde, forventede lagoppstillinger og tydeligere kamptempo-signaler.</div>
+      <div className="warning-box"><strong>Neste steg:</strong> Dypere laganalyse er nå synlig i kampvisningen. Neste store nivå er å koble på ekte spillerdata: skader, suspensjoner, expected lineup og confirmed lineup.</div>
     </section>
   );
 }
