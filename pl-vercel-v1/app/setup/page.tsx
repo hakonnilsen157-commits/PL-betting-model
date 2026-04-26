@@ -47,15 +47,16 @@ const envVars = [
 ];
 
 const setupSteps = [
+  'Start med Release notes for å se siste anbefalte testrekkefølge.',
   'Gå til prosjektet i Vercel.',
   'Åpne Settings og deretter Environment Variables.',
   'Legg inn API-nøkler som secrets, ikke direkte i koden.',
   'Sett DATA_MODE til ønsket modus.',
-  'Legg inn Upstash Redis-variablene hvis trackerhistorikk skal overleve nye deploys.',
+  'Legg inn Upstash Redis-variablene når du jobber med issue #3.',
   'Redeploy prosjektet etter at environment variables er lagret.',
   'Åpne /api/tracker/storage-status og sjekk at storageMode viser upstash-redis.',
   'Sjekk Status-siden i appen etter deploy og bekreft at Redis ping viser OK.',
-  'Lagre et server snapshot i V2 Tracker og sjekk at pending fortsatt finnes etter en ny redeploy.',
+  'Kjør Persistent test og sjekk at open/settled rows finnes etter en ny redeploy.',
 ];
 
 const storageModes = [
@@ -72,9 +73,25 @@ const storageModes = [
 const redisChecks = [
   '/api/tracker/storage-status skal vise storageMode: upstash-redis når variablene er satt.',
   'Redis ping på Status-siden skal vise OK.',
-  'V2 Tracker skal kunne lagre server snapshot uten feil.',
+  'V2 Tracker eller Test lab skal kunne lagre server snapshot uten feil.',
   'Stats og Quality skal vise samme antall tracker-rader etter lagring.',
-  'Etter redeploy bør trackerhistorikken fortsatt være der hvis Redis er satt riktig.',
+  'Persistent test skal vise at historikken fortsatt er der etter redeploy.',
+  'Issue #3 kan først lukkes når Redis og Persistent test er bekreftet.',
+];
+
+const helpfulPages = [
+  { href: '/release-notes', label: 'Release notes' },
+  { href: '/upstash-setup', label: 'Upstash setup' },
+  { href: '/persistent-test', label: 'Persistent test' },
+  { href: '/deploy-checklist', label: 'Deploy checklist' },
+  { href: '/status', label: 'Status' },
+  { href: '/diagnostics', label: 'Diagnostics' },
+];
+
+const issueNotes = [
+  'Issue #2: brukes til deploy-test og generell V2-test.',
+  'Issue #3: brukes til Upstash Redis, Vercel env vars og persistent redeploy-test.',
+  'Ikke lim inn hemmelige tokens i GitHub issues.',
 ];
 
 export default function SetupPage() {
@@ -168,8 +185,29 @@ export default function SetupPage() {
             </div>
           </section>
 
+          <section className="detail-card" style={{ marginTop: 16 }}>
+            <h2 className="section-title">Nyttige sider</h2>
+            <div className="app-nav-links" style={{ marginTop: 12 }}>
+              {helpfulPages.map((link) => (
+                <a key={link.href} href={link.href} className="app-nav-link">{link.label}</a>
+              ))}
+            </div>
+          </section>
+
+          <section className="detail-card" style={{ marginTop: 16 }}>
+            <h2 className="section-title">GitHub issues</h2>
+            <div className="reason-list" style={{ marginTop: 16 }}>
+              {issueNotes.map((note, index) => (
+                <div key={note} className="reason-card">
+                  <span className="reason-number">{index + 1}</span>
+                  <div className="metric-pill-value">{note}</div>
+                </div>
+              ))}
+            </div>
+          </section>
+
           <section className="warning-box">
-            API-nøkler og Redis-token skal aldri legges direkte i GitHub-repoet. De bør alltid lagres som environment variables eller secrets i Vercel.
+            API-nøkler og Redis-token skal aldri legges direkte i GitHub-repoet eller GitHub issues. De bør alltid lagres som environment variables eller secrets i Vercel.
           </section>
         </aside>
       </section>
