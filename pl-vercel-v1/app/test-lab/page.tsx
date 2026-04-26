@@ -61,12 +61,33 @@ function detail(json: unknown) {
   return 'Svar mottatt';
 }
 
+async function fetchWithTimeout(path: string, init?: RequestInit, timeoutMs = 8000) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(path, {
+      ...init,
+      cache: init?.cache ?? 'no-store',
+      signal: controller.signal,
+    });
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function jsonOrNull(res: Response) {
+  const contentType = res.headers.get('content-type') ?? '';
+  if (!contentType.includes('application/json')) return null;
+  return res.json().catch(() => null);
+}
+
 export default function TestLabPage() {
   const [probes, setProbes] = useState<Probe[]>([]);
   const [summary, setSummary] = useState<Summary | null>(null);
   const [logs, setLogs] = useState<Log[]>([]);
   const [busy, setBusy] = useState(false);
   const [action, setAction] = useState<string | null>(null);
+  const [lastUpdated, setLastUpdated] = useState<string | null>(null);
 
   function addLog(title: string, logDetail: string) {
     setLogs((items) => [{ at: timeNow(), title, detail: logDetail }, ...items].slice(0, 10));
@@ -74,30 +95,32 @@ export default function TestLabPage() {
 
   async function refresh() {
     setBusy(true);
+    const started = timeNow();
     try {
       const next = await Promise.all(endpoints.map(async ([label, path]) => {
         try {
-          const res = await fetch(path, { cache: 'no-store' });
-          const json = (res.headers.get('content-type') ?? '').includes('application/json') ? await res.json() : null;
+          const res = await fetchWithTimeout(path);
+          const json = await jsonOrNull(res);
           return { label, path, ok: res.ok, status: res.status, detail: detail(json) };
         } catch (error) {
-          return { label, path, ok: false, status: 0, detail: error instanceof Error ? error.message : 'Ukjent feil' };
+          const aborted = error instanceof DOMException && error.name === 'AbortError';
+          return { label, path, ok: false, status: 0, detail: aborted ? 'Timeout etter 8 sekunder' : error instanceof Error ? error.message : 'Ukjent feil' };
         }
       }));
       setProbes(next);
 
-      const [storageRes, statsRes, insightsRes, diagnosticsRes] = await Promise.all([
-        fetch('/api/tracker/storage-status', { cache: 'no-store' }),
-        fetch('/api/tracker/stats', { cache: 'no-store' }),
-        fetch('/api/tracker/insights', { cache: 'no-store' }),
-        fetch('/api/tracker/diagnostics', { cache: 'no-store' }),
+      const [storageResult, statsResult, insightsResult, diagnosticsResult] = await Promise.allSettled([
+        fetchWithTimeout('/api/tracker/storage-status').then((res) => res.json()),
+        fetchWithTimeout('/api/tracker/stats').then((res) => res.json()),
+        fetchWithTimeout('/api/tracker/insights').then((res) => res.json()),
+        fetchWithTimeout('/api/tracker/diagnostics').then((res) => res.json()),
       ]);
-      const [storage, stats, insights, diagnostics] = await Promise.all([
-        storageRes.json(),
-        statsRes.json(),
-        insightsRes.json(),
-        diagnosticsRes.json(),
-      ]);
+
+      const storage = storageResult.status === 'fulfilled' ? storageResult.value : {};
+      const stats = statsResult.status === 'fulfilled' ? statsResult.value : {};
+      const insights = insightsResult.status === 'fulfilled' ? insightsResult.value : {};
+      const diagnostics = diagnosticsResult.status === 'fulfilled' ? diagnosticsResult.value : {};
+
       setSummary({
         storageMode: storage.storageMode,
         openRows: storage.summary?.openRows,
@@ -108,7 +131,12 @@ export default function TestLabPage() {
         profit: stats.summary?.profit,
         roi: stats.summary?.roi,
       });
-      addLog('Oppdater alt', `API probes: ${next.filter((item) => item.ok).length}/${next.length}`);
+
+      const ok = next.filter((item) => item.ok).length;
+      setLastUpdated(started);
+      addLog('Oppdater alt', `API probes: ${ok}/${next.length}`);
+    } catch (error) {
+      addLog('Oppdater alt', error instanceof Error ? error.message : 'Ukjent feil');
     } finally {
       setBusy(false);
     }
@@ -130,9 +158,9 @@ export default function TestLabPage() {
 
   function runFlowAction(flowAction: string) {
     if (flowAction === 'refresh') return refresh();
-    if (flowAction === 'snapshot') return run('snapshot', 'Save snapshot', () => fetch('/api/tracker/snapshot', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ limit: 8 }) }));
-    if (flowAction === 'seed') return run('seed', 'Seed demo', () => fetch('/api/tracker/seed-demo', { method: 'POST' }));
-    if (flowAction === 'settle') return run('settle', 'Auto-settle', () => fetch('/api/tracker/auto-settle', { method: 'POST' }));
+    if (flowAction === 'snapshot') return run('snapshot', 'Save snapshot', () => fetchWithTimeout('/api/tracker/snapshot', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ limit: 8 }) }));
+    if (flowAction === 'seed') return run('seed', 'Seed demo', () => fetchWithTimeout('/api/tracker/seed-demo', { method: 'POST' }));
+    if (flowAction === 'settle') return run('settle', 'Auto-settle', () => fetchWithTimeout('/api/tracker/auto-settle', { method: 'POST' }));
     return undefined;
   }
 
@@ -152,11 +180,35 @@ export default function TestLabPage() {
             <p className="hero-subtitle">En praktisk testsentral for V2-flyten: snapshot, demo-data, status, export og API-sjekker.</p>
           </div>
           <div className="app-nav-links">
-            <button type="button" className="app-nav-link" onClick={refresh} disabled={busy}>{busy ? 'Tester...' : 'Oppdater alt'}</button>
+            <button type="button" className="app-nav-link" onClick={refresh}>{busy ? 'Tester...' : 'Oppdater alt'}</button>
             <a href="/quick-test" className="app-nav-link">Quick test</a>
             <a href="/qa" className="app-nav-link">QA</a>
           </div>
         </div>
+
+        <button
+          type="button"
+          onClick={refresh}
+          style={{
+            width: '100%',
+            marginTop: 20,
+            border: '1px solid #9cc3f7',
+            borderRadius: 22,
+            padding: 18,
+            background: '#edf5ff',
+            color: '#102033',
+            fontSize: 20,
+            fontWeight: 900,
+            cursor: 'pointer',
+            boxShadow: '0 10px 22px rgba(16, 32, 51, 0.08)',
+          }}
+        >
+          {busy ? 'Tester API-er nå...' : 'Trykk her: Oppdater alt'}
+        </button>
+        <p className="section-subtitle" style={{ textAlign: 'center' }}>
+          {lastUpdated ? `Sist oppdatert: ${lastUpdated}` : 'Denne knappen skal oppdatere API probes, storage og sammendrag.'}
+        </p>
+
         <div className="summary-grid" style={{ marginTop: 20 }}>
           <div className="summary-card"><div className="summary-label">API probes</div><div className="summary-value">{probes.length ? `${okCount}/${probes.length}` : '–'}</div></div>
           <div className="summary-card"><div className="summary-label">Storage</div><div className="summary-value" style={{ fontSize: 20 }}>{summary?.storageMode ?? '–'}</div></div>
@@ -174,12 +226,12 @@ export default function TestLabPage() {
       <section className="main-grid">
         <div className="left-column">
           <section className="list-card">
-            <div className="list-card-header"><div><h2 className="section-title" style={{ marginBottom: 0 }}>Anbefalt testflyt</h2><p className="section-subtitle">Nå er de første stegene ekte knapper. Trykk dem direkte her.</p></div><div className="badge-soft">Flow</div></div>
+            <div className="list-card-header"><div><h2 className="section-title" style={{ marginBottom: 0 }}>Anbefalt testflyt</h2><p className="section-subtitle">De første stegene er nå ekte knapper. Den blå knappen øverst er enklest å teste først.</p></div><div className="badge-soft">Flow</div></div>
             <div className="reason-list">
               {testFlow.map((item, index) => {
                 const content = <><span className="reason-number">{index + 1}</span><div><div className="metric-pill-value">{item.label}</div><p className="section-subtitle" style={{ marginTop: 4 }}>{item.hint}</p></div></>;
                 if ('action' in item) {
-                  return <button key={item.label} type="button" className="reason-card" disabled={busy || action !== null} onClick={() => runFlowAction(item.action)} style={{ width: '100%', textAlign: 'left' }}>{content}</button>;
+                  return <button key={item.label} type="button" className="reason-card" disabled={action !== null} onClick={() => runFlowAction(item.action)} style={{ width: '100%', textAlign: 'left', cursor: 'pointer' }}>{content}</button>;
                 }
                 return <a key={item.label} href={item.href} className="reason-card" style={{ textDecoration: 'none' }}>{content}</a>;
               })}
@@ -189,10 +241,10 @@ export default function TestLabPage() {
           <section className="list-card">
             <div className="list-card-header"><div><h2 className="section-title" style={{ marginBottom: 0 }}>Test actions</h2><p className="section-subtitle">Samme handlinger samlet som knapper.</p></div><div className="badge-soft">V2</div></div>
             <div className="summary-grid" style={{ marginTop: 14 }}>
-              <button type="button" className="summary-card" disabled={action !== null} onClick={() => run('snapshot', 'Save snapshot', () => fetch('/api/tracker/snapshot', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ limit: 8 }) }))}><div className="summary-label">Step 1</div><div className="summary-value" style={{ fontSize: 20 }}>{action === 'snapshot' ? 'Lagrer...' : 'Save snapshot'}</div></button>
-              <button type="button" className="summary-card" disabled={action !== null} onClick={() => run('seed', 'Seed demo', () => fetch('/api/tracker/seed-demo', { method: 'POST' }))}><div className="summary-label">Demo</div><div className="summary-value" style={{ fontSize: 20 }}>{action === 'seed' ? 'Legger inn...' : 'Seed demo'}</div></button>
-              <button type="button" className="summary-card" disabled={action !== null} onClick={() => run('settle', 'Auto-settle', () => fetch('/api/tracker/auto-settle', { method: 'POST' }))}><div className="summary-label">Resultat</div><div className="summary-value" style={{ fontSize: 20 }}>{action === 'settle' ? 'Kjører...' : 'Auto-settle'}</div></button>
-              <button type="button" className="summary-card" disabled={action !== null} onClick={() => run('reset', 'Reset store', () => fetch('/api/tracker/history', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ kind: 'all' }) }))}><div className="summary-label">Reset</div><div className="summary-value" style={{ fontSize: 20 }}>{action === 'reset' ? 'Nullstiller...' : 'Reset store'}</div></button>
+              <button type="button" className="summary-card" disabled={action !== null} onClick={() => run('snapshot', 'Save snapshot', () => fetchWithTimeout('/api/tracker/snapshot', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ limit: 8 }) }))}><div className="summary-label">Step 1</div><div className="summary-value" style={{ fontSize: 20 }}>{action === 'snapshot' ? 'Lagrer...' : 'Save snapshot'}</div></button>
+              <button type="button" className="summary-card" disabled={action !== null} onClick={() => run('seed', 'Seed demo', () => fetchWithTimeout('/api/tracker/seed-demo', { method: 'POST' }))}><div className="summary-label">Demo</div><div className="summary-value" style={{ fontSize: 20 }}>{action === 'seed' ? 'Legger inn...' : 'Seed demo'}</div></button>
+              <button type="button" className="summary-card" disabled={action !== null} onClick={() => run('settle', 'Auto-settle', () => fetchWithTimeout('/api/tracker/auto-settle', { method: 'POST' }))}><div className="summary-label">Resultat</div><div className="summary-value" style={{ fontSize: 20 }}>{action === 'settle' ? 'Kjører...' : 'Auto-settle'}</div></button>
+              <button type="button" className="summary-card" disabled={action !== null} onClick={() => run('reset', 'Reset store', () => fetchWithTimeout('/api/tracker/history', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ kind: 'all' }) }))}><div className="summary-label">Reset</div><div className="summary-value" style={{ fontSize: 20 }}>{action === 'reset' ? 'Nullstiller...' : 'Reset store'}</div></button>
             </div>
           </section>
 
