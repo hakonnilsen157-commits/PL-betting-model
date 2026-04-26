@@ -1,5 +1,17 @@
 const changes = [
   {
+    version: 'V2.22',
+    title: 'Quick test og deploy-flyt finpusset',
+    items: [
+      'Oppdatert Quick test med Release notes som første steg og Deploy checklist som steg 2.',
+      'Utvidet Quick test til 10-stegs testrekkefølge.',
+      'Lagt inn issue #2 og issue #3 tydeligere i Quick test.',
+      'Oppdatert Deploy checklist med Release notes, GitHub issues-seksjon og 9-stegs deploy-test.',
+      'Oppdatert QA med Release flow og GitHub issue flow.',
+      'Oppdatert Roadmap til V2.21 med issue #3 som neste manuelle mål.',
+    ],
+  },
+  {
     version: 'V2.21',
     title: 'Release notes og Upstash issue',
     items: [
