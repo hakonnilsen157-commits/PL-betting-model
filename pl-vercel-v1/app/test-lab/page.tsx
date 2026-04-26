@@ -28,13 +28,13 @@ const endpoints = [
 ] as const;
 
 const testFlow = [
-  'Oppdater alt',
-  'Save snapshot',
-  'Seed demo',
-  'Auto-settle',
-  'Sjekk Stats/Quality/Insights',
-  'Eksporter CSV/JSON',
-];
+  { label: 'Oppdater alt', hint: 'Kjør API-sjekk og oppdater sammendrag.', action: 'refresh' },
+  { label: 'Save snapshot', hint: 'Lagre dagens anbefalinger i tracker-store.', action: 'snapshot' },
+  { label: 'Seed demo', hint: 'Legg inn testdata for Stats/Quality/Insights.', action: 'seed' },
+  { label: 'Auto-settle', hint: 'Test settlement-flyten.', action: 'settle' },
+  { label: 'Sjekk Stats/Quality/Insights', hint: 'Åpne analysesidene etter at data er lagret.', href: '/tracker-stats' },
+  { label: 'Eksporter CSV/JSON', hint: 'Last ned trackerhistorikk.', href: '/api/tracker/export?format=csv' },
+] as const;
 
 function timeNow() {
   return new Date().toLocaleString('no-NO');
@@ -108,6 +108,7 @@ export default function TestLabPage() {
         profit: stats.summary?.profit,
         roi: stats.summary?.roi,
       });
+      addLog('Oppdater alt', `API probes: ${next.filter((item) => item.ok).length}/${next.length}`);
     } finally {
       setBusy(false);
     }
@@ -125,6 +126,14 @@ export default function TestLabPage() {
     } finally {
       setAction(null);
     }
+  }
+
+  function runFlowAction(flowAction: string) {
+    if (flowAction === 'refresh') return refresh();
+    if (flowAction === 'snapshot') return run('snapshot', 'Save snapshot', () => fetch('/api/tracker/snapshot', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ limit: 8 }) }));
+    if (flowAction === 'seed') return run('seed', 'Seed demo', () => fetch('/api/tracker/seed-demo', { method: 'POST' }));
+    if (flowAction === 'settle') return run('settle', 'Auto-settle', () => fetch('/api/tracker/auto-settle', { method: 'POST' }));
+    return undefined;
   }
 
   useEffect(() => {
@@ -165,21 +174,25 @@ export default function TestLabPage() {
       <section className="main-grid">
         <div className="left-column">
           <section className="list-card">
-            <div className="list-card-header"><div><h2 className="section-title" style={{ marginBottom: 0 }}>Test actions</h2><p className="section-subtitle">Knapper for rask testing.</p></div><div className="badge-soft">V2</div></div>
+            <div className="list-card-header"><div><h2 className="section-title" style={{ marginBottom: 0 }}>Anbefalt testflyt</h2><p className="section-subtitle">Nå er de første stegene ekte knapper. Trykk dem direkte her.</p></div><div className="badge-soft">Flow</div></div>
+            <div className="reason-list">
+              {testFlow.map((item, index) => {
+                const content = <><span className="reason-number">{index + 1}</span><div><div className="metric-pill-value">{item.label}</div><p className="section-subtitle" style={{ marginTop: 4 }}>{item.hint}</p></div></>;
+                if ('action' in item) {
+                  return <button key={item.label} type="button" className="reason-card" disabled={busy || action !== null} onClick={() => runFlowAction(item.action)} style={{ width: '100%', textAlign: 'left' }}>{content}</button>;
+                }
+                return <a key={item.label} href={item.href} className="reason-card" style={{ textDecoration: 'none' }}>{content}</a>;
+              })}
+            </div>
+          </section>
+
+          <section className="list-card">
+            <div className="list-card-header"><div><h2 className="section-title" style={{ marginBottom: 0 }}>Test actions</h2><p className="section-subtitle">Samme handlinger samlet som knapper.</p></div><div className="badge-soft">V2</div></div>
             <div className="summary-grid" style={{ marginTop: 14 }}>
               <button type="button" className="summary-card" disabled={action !== null} onClick={() => run('snapshot', 'Save snapshot', () => fetch('/api/tracker/snapshot', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ limit: 8 }) }))}><div className="summary-label">Step 1</div><div className="summary-value" style={{ fontSize: 20 }}>{action === 'snapshot' ? 'Lagrer...' : 'Save snapshot'}</div></button>
               <button type="button" className="summary-card" disabled={action !== null} onClick={() => run('seed', 'Seed demo', () => fetch('/api/tracker/seed-demo', { method: 'POST' }))}><div className="summary-label">Demo</div><div className="summary-value" style={{ fontSize: 20 }}>{action === 'seed' ? 'Legger inn...' : 'Seed demo'}</div></button>
               <button type="button" className="summary-card" disabled={action !== null} onClick={() => run('settle', 'Auto-settle', () => fetch('/api/tracker/auto-settle', { method: 'POST' }))}><div className="summary-label">Resultat</div><div className="summary-value" style={{ fontSize: 20 }}>{action === 'settle' ? 'Kjører...' : 'Auto-settle'}</div></button>
               <button type="button" className="summary-card" disabled={action !== null} onClick={() => run('reset', 'Reset store', () => fetch('/api/tracker/history', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ kind: 'all' }) }))}><div className="summary-label">Reset</div><div className="summary-value" style={{ fontSize: 20 }}>{action === 'reset' ? 'Nullstiller...' : 'Reset store'}</div></button>
-            </div>
-          </section>
-
-          <section className="list-card">
-            <div className="list-card-header"><div><h2 className="section-title" style={{ marginBottom: 0 }}>Anbefalt testflyt</h2><p className="section-subtitle">Rask sjekkliste når du tester i dag.</p></div><div className="badge-soft">Flow</div></div>
-            <div className="reason-list">
-              {testFlow.map((item, index) => (
-                <div key={item} className="reason-card"><span className="reason-number">{index + 1}</span><div className="metric-pill-value">{item}</div></div>
-              ))}
             </div>
           </section>
 
