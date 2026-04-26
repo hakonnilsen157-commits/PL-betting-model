@@ -1,35 +1,39 @@
 const checks = [
   {
-    title: '1. Vercel deploy er Ready',
+    title: '1. Les Release notes',
+    text: 'Start med /release-notes for kort oversikt over siste versjon, testrekkefølge og manuelle GitHub-oppgaver.',
+  },
+  {
+    title: '2. Vercel deploy er Ready',
     text: 'Sjekk at siste deployment er ferdig og står som Ready før du tester appen.',
   },
   {
-    title: '2. Åpne Quick test',
+    title: '3. Åpne Quick test',
     text: 'Start på /quick-test for å følge riktig testrekkefølge.',
   },
   {
-    title: '3. Åpne Test lab',
+    title: '4. Åpne Test lab',
     text: 'Trykk Oppdater alt og sjekk at API probes svarer.',
   },
   {
-    title: '4. Test tracker handlinger',
+    title: '5. Test tracker handlinger',
     text: 'Kjør Save snapshot, Seed demo og Auto-settle. Sjekk at action log oppdateres.',
   },
   {
-    title: '5. Sjekk analyse-sider',
+    title: '6. Sjekk analyse-sider',
     text: 'Åpne Stats, Quality, Insights, Diagnostics og Backtest etter testdata er lagt inn.',
   },
   {
-    title: '6. Test export',
+    title: '7. Test export',
     text: 'Åpne CSV og JSON export fra Test lab.',
   },
   {
-    title: '7. Sjekk Upstash-status',
+    title: '8. Sjekk Upstash-status',
     text: 'Hvis Redis er satt opp, åpne Upstash setup og Status for å bekrefte upstash-redis og Redis ping OK.',
   },
   {
-    title: '8. Oppdater issue #2',
-    text: 'Bruk GitHub issue #2 som testprotokoll og marker hva som er testet.',
+    title: '9. Oppdater GitHub issues',
+    text: 'Bruk issue #2 for deploy-testen og issue #3 for Upstash-oppsett/persistent test.',
   },
 ];
 
@@ -37,15 +41,17 @@ const failSteps = [
   'Hvis siden ikke laster: sjekk Vercel build log først.',
   'Hvis API probes feiler: åpne Status og API reference.',
   'Hvis tracker ikke lagrer: sjekk Storage status og Diagnostics.',
-  'Hvis historikk forsvinner etter redeploy: sett opp Upstash Redis i Vercel via Upstash setup-siden.',
+  'Hvis historikk forsvinner etter redeploy: sett opp Upstash Redis i Vercel via Upstash setup-siden og issue #3.',
   'Hvis Redis ikke slår inn: sjekk variabelnavn, Production/Preview scope og redeploy.',
   'Hvis en knapp ikke virker: noter hvilken knapp og kopier feilmeldingen.',
 ];
 
 const links = [
+  { href: '/release-notes', label: 'Release notes' },
   { href: '/quick-test', label: 'Quick test' },
   { href: '/test-lab', label: 'Test lab' },
   { href: '/upstash-setup', label: 'Upstash setup' },
+  { href: '/persistent-test', label: 'Persistent test' },
   { href: '/status', label: 'Status' },
   { href: '/diagnostics', label: 'Diagnostics' },
   { href: '/api-reference', label: 'API reference' },
@@ -58,6 +64,13 @@ const redisChecks = [
   'Appen er redeployet etter at variablene ble lagt inn.',
   'Status viser storageMode upstash-redis.',
   'Diagnostics persistent storage-check er OK.',
+  'Persistent test viser at open/settled rows overlever redeploy.',
+];
+
+const issueChecks = [
+  'Issue #2 holdes åpen til V2.20 deploy-testen er utført.',
+  'Issue #3 holdes åpen til Upstash Redis er satt opp og persistent test er bestått.',
+  'Hvis noe feiler, legg inn side, knapp, miljø og feilmelding i riktig issue.',
 ];
 
 export default function DeployChecklistPage() {
@@ -73,6 +86,7 @@ export default function DeployChecklistPage() {
             </p>
           </div>
           <div className="app-nav-links">
+            <a href="/release-notes" className="app-nav-link">Release notes</a>
             <a href="/quick-test" className="app-nav-link">Quick test</a>
             <a href="/test-lab" className="app-nav-link">Test lab</a>
             <a href="/upstash-setup" className="app-nav-link">Upstash</a>
@@ -88,7 +102,7 @@ export default function DeployChecklistPage() {
                 <h2 className="section-title" style={{ marginBottom: 0 }}>Etter deploy</h2>
                 <p className="section-subtitle">Følg disse punktene når du tester ny versjon.</p>
               </div>
-              <div className="badge-soft">8 steg</div>
+              <div className="badge-soft">9 steg</div>
             </div>
             <div className="metrics-grid" style={{ marginTop: 14 }}>
               {checks.map((check) => (
@@ -134,6 +148,18 @@ export default function DeployChecklistPage() {
             <h2 className="section-title">Redis sjekk</h2>
             <div className="reason-list" style={{ marginTop: 16 }}>
               {redisChecks.map((item, index) => (
+                <div key={item} className="reason-card">
+                  <span className="reason-number">{index + 1}</span>
+                  <div className="metric-pill-value">{item}</div>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          <section className="detail-card" style={{ marginTop: 16 }}>
+            <h2 className="section-title">GitHub issues</h2>
+            <div className="reason-list" style={{ marginTop: 16 }}>
+              {issueChecks.map((item, index) => (
                 <div key={item} className="reason-card">
                   <span className="reason-number">{index + 1}</span>
                   <div className="metric-pill-value">{item}</div>
