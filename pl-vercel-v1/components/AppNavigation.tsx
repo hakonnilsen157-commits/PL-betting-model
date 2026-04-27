@@ -15,6 +15,7 @@ const navGroups: NavGroup[] = [
     label: 'App',
     links: [
       { href: '/', label: 'Dashboard' },
+      { href: '/live-status', label: 'Live status' },
       { href: '/matchup-verdict', label: 'Matchup verdict' },
       { href: '/quick-test', label: 'Quick test' },
       { href: '/test-lab', label: 'Test lab' },
