@@ -2,6 +2,7 @@ import './globals.css';
 import './nav.css';
 import type { Metadata } from 'next';
 import AppNavigation from '@/components/AppNavigation';
+import LiveAutoRefresh from '@/components/LiveAutoRefresh';
 
 export const metadata: Metadata = {
   title: 'PL Betting Model V1',
@@ -14,6 +15,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body>
         <AppNavigation />
         {children}
+        <LiveAutoRefresh />
       </body>
     </html>
   );
