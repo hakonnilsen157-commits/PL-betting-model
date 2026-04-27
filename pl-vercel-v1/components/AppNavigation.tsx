@@ -19,6 +19,7 @@ const navGroups: NavGroup[] = [
       { href: '/quick-test', label: 'Quick test' },
       { href: '/test-lab', label: 'Test lab' },
       { href: '/v2-tracker', label: 'V2 Tracker' },
+      { href: '/settled-picks', label: 'Settled picks' },
       { href: '/tracker-stats', label: 'Stats' },
       { href: '/quality', label: 'Quality' },
       { href: '/insights', label: 'Insights' },
